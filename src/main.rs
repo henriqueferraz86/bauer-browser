@@ -461,6 +461,20 @@ fn main() -> wry::Result<()> {
                 apply_tab_bounds(&content_views, active_tab, cur_w, cur_h);
             }
 
+            // ── DPI / monitor change ──────────────────────────────────────────
+            // Fires when the window moves to a different monitor or the OS
+            // display scale changes. Recalculate logical bounds so WebViews
+            // cover the full window at the new scale factor.
+            Event::WindowEvent {
+                event: WindowEvent::ScaleFactorChanged { new_inner_size, .. }, ..
+            } => {
+                let scale = window.scale_factor();
+                cur_w = (new_inner_size.width  as f64 / scale) as u32;
+                cur_h = (new_inner_size.height as f64 / scale) as u32;
+                let _ = chrome.set_bounds(Rect { x: 0, y: 0, width: cur_w, height: CHROME_H });
+                apply_tab_bounds(&content_views, active_tab, cur_w, cur_h);
+            }
+
             // ── Close ─────────────────────────────────────────────────────────
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
                 *control_flow = ControlFlow::Exit;
