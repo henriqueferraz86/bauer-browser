@@ -155,7 +155,7 @@ fn main() -> wry::Result<()> {
         ADBLOCK_JS,
     );
 
-    let event_loop = EventLoop::<AppEvent>::with_user_event();
+    let event_loop = EventLoop::<AppEvent>::new();
     let proxy      = event_loop.create_proxy();
 
     let window = WindowBuilder::new()
@@ -173,7 +173,7 @@ fn main() -> wry::Result<()> {
     let proxy_c = proxy.clone();
     let chrome = WebViewBuilder::new_as_child(&window)
         .with_bounds(Rect { x: 0, y: 0, width: win_w, height: CHROME_H })
-        .with_html(CHROME_HTML)?
+        .with_html(CHROME_HTML)
         .with_ipc_handler(move |msg: String| {
             match serde_json::from_str::<Cmd>(&msg) {
                 Ok(cmd) => { let _ = proxy_c.send_event(AppEvent::Command(cmd)); }
@@ -200,7 +200,7 @@ fn main() -> wry::Result<()> {
 
             WebViewBuilder::new_as_child(&window)
                 .with_bounds(rect)
-                .with_url(url)?
+                .with_url(url)
                 .with_initialization_script(&is)
                 .with_navigation_handler(move |url: String| {
                     if bl_t.is_blocked(&url) { return false; }
@@ -397,4 +397,6 @@ fn main() -> wry::Result<()> {
             _ => {}
         }
     });
+
+    Ok(())
 }
