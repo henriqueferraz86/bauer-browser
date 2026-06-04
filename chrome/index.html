@@ -79,8 +79,10 @@ body {
   height: 28px;
   border-radius: 6px;
   flex-shrink: 0;
+  transition: opacity .15s;
 }
-#btn-new-tab:hover { color: #c0caf5; background: #2a2d3e; }
+#btn-new-tab:hover:not(:disabled) { color: #c0caf5; background: #2a2d3e; }
+#btn-new-tab:disabled { opacity: 0.25; cursor: not-allowed; }
 
 /* ── Toolbar row (bottom 56px) ────────────────────────── */
 #toolbar {
@@ -170,7 +172,7 @@ button.bb:active { background: #545c7e; }
 <!-- Tab bar -->
 <div id="tabbar">
   <!-- Tabs injected by updateTabs() -->
-  <button id="btn-new-tab" title="New Tab (Ctrl+T)" onclick="send('newTab')">＋</button>
+  <button id="btn-new-tab" title="New Tab (Ctrl+T)" onclick="newTabClick()">＋</button>
 </div>
 
 <!-- Toolbar -->
@@ -218,6 +220,10 @@ function navigate() {
   if (v) send('navigate', { url: v });
 }
 
+function newTabClick() {
+  if (!document.getElementById('btn-new-tab').disabled) send('newTab');
+}
+
 function agentClick() {
   var b = document.getElementById('btn-agent');
   b.textContent = '⏳…'; b.disabled = true;
@@ -226,24 +232,20 @@ function agentClick() {
 
 // ── Called from Rust ─────────────────────────────────────────────────────
 
-// Update URL bar when active tab navigates
 function setUrlBar(url) {
   document.getElementById('url').value = url;
 }
 
-// Update RAM display
 function setRam(mb, alert) {
   var el = document.getElementById('ram');
   el.textContent = mb.toFixed(0) + ' MB';
   el.className = alert ? 'alert' : '';
 }
 
-// Update mode dropdown (when switching tabs)
 function setMode(mode) {
   document.getElementById('mode').value = mode;
 }
 
-// Show agent result panel
 function showAgent(text) {
   document.getElementById('agent-text').textContent = text;
   document.getElementById('agent-panel').style.display = 'block';
@@ -251,10 +253,9 @@ function showAgent(text) {
   b.textContent = '🤖 Resumir'; b.disabled = false;
 }
 
-// Rebuild tab bar — called from Rust on any tab change
-function updateTabs(tabs, activeIndex) {
+// Rebuild tab bar; maxTabs enables/disables the + button (spec 3.11)
+function updateTabs(tabs, activeIndex, maxTabs) {
   var bar = document.getElementById('tabbar');
-  // Remove old tab elements (keep the + button)
   bar.querySelectorAll('.tab').forEach(function(t) { t.remove(); });
 
   tabs.forEach(function(tab, i) {
@@ -276,6 +277,12 @@ function updateTabs(tabs, activeIndex) {
 
     bar.insertBefore(div, document.getElementById('btn-new-tab'));
   });
+
+  // 3.11: visually disable + when at the limit
+  var btn = document.getElementById('btn-new-tab');
+  var atLimit = maxTabs !== undefined && tabs.length >= maxTabs;
+  btn.disabled = atLimit;
+  btn.title = atLimit ? 'Maximum tabs reached (' + maxTabs + ')' : 'New Tab (Ctrl+T)';
 }
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -284,7 +291,11 @@ document.addEventListener('keydown', function(e) {
   if (e.altKey  && e.key === 'ArrowRight') { send('forward'); e.preventDefault(); }
   if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) { send('reload'); e.preventDefault(); }
   if (e.ctrlKey && e.key === 'l') { document.getElementById('url').focus(); e.preventDefault(); }
-  if (e.ctrlKey && e.key === 't') { send('newTab'); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 't') {
+    if (!document.getElementById('btn-new-tab').disabled) {
+      send('newTab'); e.preventDefault();
+    }
+  }
   if (e.ctrlKey && e.key === 'w') { send('closeTab', { index: -1 }); e.preventDefault(); }
 });
 </script>

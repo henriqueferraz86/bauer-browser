@@ -3,8 +3,15 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use chrono::Local;
+
+static LOG_ENABLED: AtomicBool = AtomicBool::new(true);
+
+pub fn init(enabled: bool) {
+    LOG_ENABLED.store(enabled, Ordering::Relaxed);
+}
 
 fn log_path() -> PathBuf {
     dirs::home_dir()
@@ -14,6 +21,7 @@ fn log_path() -> PathBuf {
 }
 
 fn write_line(parts: &[&str]) {
+    if !LOG_ENABLED.load(Ordering::Relaxed) { return; }
     let path = log_path();
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
