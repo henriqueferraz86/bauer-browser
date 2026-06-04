@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use tao::{
     dpi::LogicalSize,
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
+    event_loop::{ControlFlow, EventLoopBuilder},
     window::WindowBuilder,
 };
 use wry::{Rect, WebViewBuilder};
@@ -155,7 +155,7 @@ fn main() -> wry::Result<()> {
         ADBLOCK_JS,
     );
 
-    let event_loop = EventLoopBuilder::<AppEvent>::new().build();
+    let event_loop = EventLoopBuilder::<AppEvent>::with_user_event().build();
     let proxy      = event_loop.create_proxy();
 
     let window = WindowBuilder::new()

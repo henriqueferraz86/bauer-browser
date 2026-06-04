@@ -1,4 +1,4 @@
-# Redireciona o target/ para fora do Documents
-# Evita bloqueios de AppControl/Controlled Folder Access do Windows
+# Local: redireciona target/ para fora do Documents (evita bloqueio WDAC)
+# Em produção (GitHub Actions), CARGO_TARGET_DIR do workflow sobrescreve isso.
 [build]
 target-dir = "C:\\Users\\henri\\AppData\\Local\\cargo-target\\bauer-browser"
