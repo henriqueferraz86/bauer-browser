@@ -12,6 +12,7 @@
 mod agent;
 mod config;
 mod filter;
+mod history;
 mod logger;
 mod mode;
 mod resource;
@@ -44,17 +45,9 @@ const MAX_TABS: usize = 5;
 const CHROME_HTML: &str = include_str!("../chrome/index.html");
 const ADBLOCK_JS:  &str = include_str!("../chrome/adblock.js");
 
-// Injected into every content WebView: watches document.title and lets Rust
-// extract page text for the Bauer Agent.
-const CONTENT_IPC_JS: &str = r#"(function(){
-    function _reportTitle(){
-        try{window.ipc.postMessage(JSON.stringify({action:'titleChanged',title:document.title}));}catch(_){}
-    }
-    document.addEventListener('DOMContentLoaded',_reportTitle);
-    window.addEventListener('load',_reportTitle);
-    new MutationObserver(_reportTitle)
-        .observe(document.documentElement,{subtree:true,childList:true,characterData:true});
-})();"#;
+// Injected into every content WebView: lets Rust extract page text for the Bauer Agent.
+// Title changes are handled natively via with_document_title_changed_handler (not IPC).
+const CONTENT_IPC_JS: &str = r#"(function(){})();"#;
 
 // ── IPC commands (chrome → Rust) ─────────────────────────────────────────────
 
@@ -78,8 +71,7 @@ enum Cmd {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 enum ContentMsg {
-    TitleChanged { title: String },
-    PageContent  { content: String, url: String },
+    PageContent { content: String, url: String },
 }
 
 // ── Custom events ─────────────────────────────────────────────────────────────
@@ -167,6 +159,8 @@ fn main() -> wry::Result<()> {
 
     logger::init(cfg.log_enabled);
 
+    let history_urls = history::load_urls();
+
     let init_script = format!(
         "var __BAUER_BLOCKED__={};\n{}\n{}",
         blocklist.domains_as_js_array(),
@@ -218,6 +212,7 @@ fn main() -> wry::Result<()> {
             let url         = if i == 0 { home.as_str() } else { "about:blank" };
             let rect        = if i == 0 { content_rect(win_w, win_h) } else { hidden_rect() };
 
+            let proxy_title = proxy.clone();
             WebViewBuilder::new_as_child(&window)
                 .with_bounds(rect)
                 .with_url(url)
@@ -227,12 +222,13 @@ fn main() -> wry::Result<()> {
                     let _ = proxy_nav.send_event(AppEvent::TabUrlChanged { tab: i, url });
                     true
                 })
-                // Receives titleChanged and pageContent messages from content pages (B-01, B-02)
+                // Native title handler — fires whenever document.title changes (B-01)
+                .with_document_title_changed_handler(move |title: String| {
+                    let _ = proxy_title.send_event(AppEvent::TabTitleChanged { tab: i, title });
+                })
+                // IPC handler for page content extraction (used by Bauer Agent, B-02)
                 .with_ipc_handler(move |msg: String| {
                     match serde_json::from_str::<ContentMsg>(&msg) {
-                        Ok(ContentMsg::TitleChanged { title }) => {
-                            let _ = proxy_ipc.send_event(AppEvent::TabTitleChanged { tab: i, title });
-                        }
                         Ok(ContentMsg::PageContent { content, url }) => {
                             let _ = proxy_ipc.send_event(AppEvent::PageContent { tab: i, url, content });
                         }
@@ -260,6 +256,12 @@ fn main() -> wry::Result<()> {
     let mut cur_mode = default_mode.clone();
 
     sync_tabs(&chrome, &tab_metas, open_count, active_tab, max_tabs);
+
+    // Send history to chrome datalist for URL autocomplete (F-02)
+    let history_json = serde_json::to_string(&history_urls).unwrap_or_else(|_| "[]".to_string());
+    let _ = chrome.evaluate_script(&format!(
+        "if(typeof setHistory==='function')setHistory({})", history_json
+    ));
 
     // ── Event loop ─────────────────────────────────────────────────────────────
     event_loop.run(move |event, _, control_flow| {
@@ -387,6 +389,12 @@ fn main() -> wry::Result<()> {
                 }
                 if tab == active_tab {
                     logger::log_navigation(&url, &cur_mode, 0.0);
+                    // Persist to history and push new URL to chrome autocomplete (F-02)
+                    history::append(&url, &tab_metas[tab].title);
+                    let _ = chrome.evaluate_script(&format!(
+                        "if(typeof addToHistory==='function')addToHistory('{}')",
+                        js_escape(&url)
+                    ));
                     window.set_title(&format!("{url} — Bauer Browser"));
                     let js = format!(
                         "if(typeof setUrlBar==='function')setUrlBar('{}')",
@@ -449,6 +457,20 @@ fn main() -> wry::Result<()> {
                 let scale = window.scale_factor();
                 cur_w = (size.width  as f64 / scale) as u32;
                 cur_h = (size.height as f64 / scale) as u32;
+                let _ = chrome.set_bounds(Rect { x: 0, y: 0, width: cur_w, height: CHROME_H });
+                apply_tab_bounds(&content_views, active_tab, cur_w, cur_h);
+            }
+
+            // ── DPI / monitor change ──────────────────────────────────────────
+            // Fires when the window moves to a different monitor or the OS
+            // display scale changes. Recalculate logical bounds so WebViews
+            // cover the full window at the new scale factor.
+            Event::WindowEvent {
+                event: WindowEvent::ScaleFactorChanged { new_inner_size, .. }, ..
+            } => {
+                let scale = window.scale_factor();
+                cur_w = (new_inner_size.width  as f64 / scale) as u32;
+                cur_h = (new_inner_size.height as f64 / scale) as u32;
                 let _ = chrome.set_bounds(Rect { x: 0, y: 0, width: cur_w, height: CHROME_H });
                 apply_tab_bounds(&content_views, active_tab, cur_w, cur_h);
             }
