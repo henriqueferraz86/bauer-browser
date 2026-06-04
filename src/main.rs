@@ -96,18 +96,19 @@ enum AppEvent {
 
 #[derive(Clone)]
 struct TabMeta {
-    url:   String,
-    title: String,
-    mode:  String,
-    open:  bool,
+    url:         String,
+    title:       String,
+    mode:        String,
+    open:        bool,
+    reader_mode: bool,
 }
 
 impl TabMeta {
     fn new(url: &str, default_mode: &str) -> Self {
-        Self { url: url.into(), title: "New Tab".into(), mode: default_mode.into(), open: true }
+        Self { url: url.into(), title: "New Tab".into(), mode: default_mode.into(), open: true, reader_mode: false }
     }
     fn blank(default_mode: &str) -> Self {
-        Self { url: "about:blank".into(), title: "".into(), mode: default_mode.into(), open: false }
+        Self { url: "about:blank".into(), title: "".into(), mode: default_mode.into(), open: false, reader_mode: false }
     }
 }
 
@@ -313,10 +314,26 @@ fn main() -> wry::Result<()> {
                 Cmd::Navigate { url } => {
                     let url = normalize_url(&url);
                     tab_metas[active_tab].url = url.clone();
+                    tab_metas[active_tab].reader_mode = false;
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setReaderMode==='function')setReaderMode(false)"
+                    );
                     content_views[active_tab].load_url(&url);
                 }
-                Cmd::Back    => { let _ = content_views[active_tab].evaluate_script("history.back()"); }
-                Cmd::Forward => { let _ = content_views[active_tab].evaluate_script("history.forward()"); }
+                Cmd::Back    => {
+                    tab_metas[active_tab].reader_mode = false;
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setReaderMode==='function')setReaderMode(false)"
+                    );
+                    let _ = content_views[active_tab].evaluate_script("history.back()");
+                }
+                Cmd::Forward => {
+                    tab_metas[active_tab].reader_mode = false;
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setReaderMode==='function')setReaderMode(false)"
+                    );
+                    let _ = content_views[active_tab].evaluate_script("history.forward()");
+                }
                 Cmd::Reload  => { let _ = content_views[active_tab].evaluate_script("location.reload()"); }
 
                 Cmd::SetMode { mode } => {
@@ -332,7 +349,20 @@ fn main() -> wry::Result<()> {
                 }
 
                 Cmd::ReaderMode => {
-                    let _ = content_views[active_tab].evaluate_script(READER_MODE_JS);
+                    if tab_metas[active_tab].reader_mode {
+                        // Deactivate: reload restores the original page
+                        tab_metas[active_tab].reader_mode = false;
+                        let _ = content_views[active_tab].evaluate_script("location.reload()");
+                        let _ = chrome.evaluate_script(
+                            "if(typeof setReaderMode==='function')setReaderMode(false)"
+                        );
+                    } else {
+                        tab_metas[active_tab].reader_mode = true;
+                        let _ = content_views[active_tab].evaluate_script(READER_MODE_JS);
+                        let _ = chrome.evaluate_script(
+                            "if(typeof setReaderMode==='function')setReaderMode(true)"
+                        );
+                    }
                 }
 
                 // Step 1: request page content via content IPC; agent fires in PageContent handler
@@ -406,6 +436,11 @@ fn main() -> wry::Result<()> {
                         let is_bm = bm_list.iter().any(|b| b.url == url);
                         let _ = chrome.evaluate_script(&format!(
                             "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
+                        ));
+                        // Sync reader mode button state (fix toggle)
+                        let rm = tab_metas[active_tab].reader_mode;
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setReaderMode==='function')setReaderMode({})", rm
                         ));
                     }
                 }
