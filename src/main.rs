@@ -10,6 +10,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod agent;
+mod bookmarks;
 mod config;
 mod filter;
 mod history;
@@ -17,6 +18,7 @@ mod logger;
 mod mode;
 mod resource;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -54,16 +56,18 @@ const CONTENT_IPC_JS: &str = r#"(function(){})();"#;
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 enum Cmd {
-    Navigate     { url: String },
+    Navigate        { url: String },
     Back,
     Forward,
     Reload,
-    SetMode      { mode: String },
+    SetMode         { mode: String },
     ReaderMode,
     AgentSummarize,
+    SaveBookmark,
+    RemoveBookmark  { url: String },
     NewTab,
-    SwitchTab    { index: usize },
-    CloseTab     { index: usize },
+    SwitchTab       { index: usize },
+    CloseTab        { index: usize },
 }
 
 // ── IPC messages (content WebViews → Rust) ───────────────────────────────────
@@ -79,11 +83,13 @@ enum ContentMsg {
 #[derive(Debug)]
 enum AppEvent {
     Command(Cmd),
-    TabUrlChanged   { tab: usize, url: String },
-    TabTitleChanged { tab: usize, title: String },
+    TabUrlChanged    { tab: usize, url: String },
+    TabTitleChanged  { tab: usize, title: String },
     RamUpdate(f64),
     AgentResult(String),
-    PageContent     { tab: usize, url: String, content: String },
+    PageContent      { tab: usize, url: String, content: String },
+    DownloadStarted  { filename: String },
+    DownloadFinished { filename: String, success: bool },
 }
 
 // ── Tab metadata ──────────────────────────────────────────────────────────────
@@ -159,7 +165,8 @@ fn main() -> wry::Result<()> {
 
     logger::init(cfg.log_enabled);
 
-    let history_urls = history::load_urls();
+    let history_urls    = history::load_urls();
+    let mut bm_list     = bookmarks::load();
 
     let init_script = format!(
         "var __BAUER_BLOCKED__={};\n{}\n{}",
@@ -213,6 +220,8 @@ fn main() -> wry::Result<()> {
             let rect        = if i == 0 { content_rect(win_w, win_h) } else { hidden_rect() };
 
             let proxy_title = proxy.clone();
+            let proxy_dls   = proxy.clone();
+            let proxy_dlc   = proxy.clone();
             WebViewBuilder::new_as_child(&window)
                 .with_bounds(rect)
                 .with_url(url)
@@ -225,6 +234,27 @@ fn main() -> wry::Result<()> {
                 // Native title handler — fires whenever document.title changes (B-01)
                 .with_document_title_changed_handler(move |title: String| {
                     let _ = proxy_title.send_event(AppEvent::TabTitleChanged { tab: i, title });
+                })
+                // Download started: redirect destination to ~/Downloads/ (F-04)
+                .with_download_started_handler(move |_url: String, path: &mut PathBuf| {
+                    let filename = path
+                        .file_name()
+                        .map(|f| f.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "download".to_string());
+                    let dl_dir = dirs::download_dir()
+                        .unwrap_or_else(|| PathBuf::from("."));
+                    *path = dl_dir.join(&filename);
+                    let _ = proxy_dls.send_event(AppEvent::DownloadStarted { filename });
+                    true
+                })
+                // Download completed: notify chrome UI (F-04)
+                .with_download_completed_handler(move |_url: String, path: Option<PathBuf>, success: bool| {
+                    let filename = path
+                        .as_ref()
+                        .and_then(|p| p.file_name())
+                        .map(|f| f.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "download".to_string());
+                    let _ = proxy_dlc.send_event(AppEvent::DownloadFinished { filename, success });
                 })
                 // IPC handler for page content extraction (used by Bauer Agent, B-02)
                 .with_ipc_handler(move |msg: String| {
@@ -263,6 +293,16 @@ fn main() -> wry::Result<()> {
         "if(typeof setHistory==='function')setHistory({})", history_json
     ));
 
+    // Send bookmarks and initial star state to chrome (F-03)
+    let bm_json = serde_json::to_string(&bm_list).unwrap_or_else(|_| "[]".to_string());
+    let _ = chrome.evaluate_script(&format!(
+        "if(typeof setBookmarks==='function')setBookmarks({})", bm_json
+    ));
+    let is_bm = bm_list.iter().any(|b| b.url == home);
+    let _ = chrome.evaluate_script(&format!(
+        "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
+    ));
+
     // ── Event loop ─────────────────────────────────────────────────────────────
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -296,6 +336,33 @@ fn main() -> wry::Result<()> {
                 }
 
                 // Step 1: request page content via content IPC; agent fires in PageContent handler
+                Cmd::SaveBookmark => {
+                    let url   = tab_metas[active_tab].url.clone();
+                    let title = tab_metas[active_tab].title.clone();
+                    bookmarks::add(&url, &title, &mut bm_list);
+                    let json = serde_json::to_string(&bm_list).unwrap_or_else(|_| "[]".to_string());
+                    let _ = chrome.evaluate_script(&format!(
+                        "if(typeof setBookmarks==='function')setBookmarks({})", json
+                    ));
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setBookmarkState==='function')setBookmarkState(true)"
+                    );
+                }
+
+                Cmd::RemoveBookmark { url } => {
+                    bookmarks::remove(&url, &mut bm_list);
+                    let json = serde_json::to_string(&bm_list).unwrap_or_else(|_| "[]".to_string());
+                    let _ = chrome.evaluate_script(&format!(
+                        "if(typeof setBookmarks==='function')setBookmarks({})", json
+                    ));
+                    let active_url = tab_metas[active_tab].url.clone();
+                    if url == active_url {
+                        let _ = chrome.evaluate_script(
+                            "if(typeof setBookmarkState==='function')setBookmarkState(false)"
+                        );
+                    }
+                }
+
                 Cmd::AgentSummarize => {
                     let url = tab_metas[active_tab].url.clone();
                     logger::log_agent_request(&url);
@@ -335,6 +402,11 @@ fn main() -> wry::Result<()> {
                         let _ = chrome.evaluate_script(&js);
                         let title = tab_metas[active_tab].title.clone();
                         window.set_title(&format!("{title} — Bauer Browser"));
+                        // Update bookmark star for the newly active tab (F-03)
+                        let is_bm = bm_list.iter().any(|b| b.url == url);
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
+                        ));
                     }
                 }
 
@@ -394,6 +466,11 @@ fn main() -> wry::Result<()> {
                     let _ = chrome.evaluate_script(&format!(
                         "if(typeof addToHistory==='function')addToHistory('{}')",
                         js_escape(&url)
+                    ));
+                    // Update bookmark star state (F-03)
+                    let is_bm = bm_list.iter().any(|b| b.url == url);
+                    let _ = chrome.evaluate_script(&format!(
+                        "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
                     ));
                     window.set_title(&format!("{url} — Bauer Browser"));
                     let js = format!(
@@ -459,6 +536,25 @@ fn main() -> wry::Result<()> {
                 cur_h = (size.height as f64 / scale) as u32;
                 let _ = chrome.set_bounds(Rect { x: 0, y: 0, width: cur_w, height: CHROME_H });
                 apply_tab_bounds(&content_views, active_tab, cur_w, cur_h);
+            }
+
+            // ── Download started (F-04) ───────────────────────────────────────
+            Event::UserEvent(AppEvent::DownloadStarted { filename }) => {
+                let js = format!(
+                    "if(typeof showDownload==='function')showDownload('{}','started')",
+                    js_escape(&filename)
+                );
+                let _ = chrome.evaluate_script(&js);
+            }
+
+            // ── Download finished (F-04) ──────────────────────────────────────
+            Event::UserEvent(AppEvent::DownloadFinished { filename, success }) => {
+                let status = if success { "done" } else { "error" };
+                let js = format!(
+                    "if(typeof showDownload==='function')showDownload('{}','{}')",
+                    js_escape(&filename), status
+                );
+                let _ = chrome.evaluate_script(&js);
             }
 
             // ── DPI / monitor change ──────────────────────────────────────────

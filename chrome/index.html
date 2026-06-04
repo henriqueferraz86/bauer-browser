@@ -138,6 +138,75 @@ button.bb:active { background: #545c7e; }
 #ram { font-size: 11px; min-width: 58px; text-align: right; color: #565f89; }
 #ram.alert { color: #f7768e; }
 
+/* ── Download toast ───────────────────────────────────── */
+#dl-toast {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0;
+  padding: 6px 14px;
+  background: #1a1c2a;
+  border: 1px solid #414868;
+  border-radius: 0 8px 0 0;
+  font-size: 12px;
+  color: #c0caf5;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 9997;
+}
+#dl-toast.done  { border-color: #9ece6a; color: #9ece6a; }
+#dl-toast.error { border-color: #f7768e; color: #f7768e; }
+
+/* ── Bookmark button active state ─────────────────────── */
+#btn-bookmark.bookmarked { color: #e0af68; }
+
+/* ── Bookmark panel ───────────────────────────────────── */
+#bookmark-panel {
+  display: none;
+  position: fixed;
+  top: 92px; right: 0;
+  width: 300px;
+  max-height: 380px;
+  background: #1a1c2a;
+  border: 1px solid #414868;
+  border-radius: 0 0 0 10px;
+  padding: 12px;
+  font-size: 13px;
+  color: #c0caf5;
+  overflow-y: auto;
+  z-index: 9998;
+  box-shadow: -4px 4px 20px rgba(0,0,0,.4);
+}
+#bookmark-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #7aa2f7;
+}
+#bookmark-close-btn { cursor: pointer; color: #565f89; }
+#bookmark-close-btn:hover { color: #c0caf5; }
+.bookmark-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  border-bottom: 1px solid #2a2d3e;
+}
+.bookmark-row:hover { background: #2a2d3e; }
+.bookmark-info { flex: 1; overflow: hidden; }
+.bookmark-title { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bookmark-url   { font-size: 10px; color: #565f89; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bookmark-del {
+  background: none; border: none; color: #565f89;
+  cursor: pointer; font-size: 14px; padding: 0 4px; flex-shrink: 0;
+}
+.bookmark-del:hover { color: #f7768e; }
+#bookmark-empty { color: #565f89; text-align: center; padding: 20px 0; }
+
 /* ── Agent result panel ───────────────────────────────── */
 #agent-panel {
   display: none;
@@ -193,11 +262,27 @@ button.bb:active { background: #545c7e; }
   </select>
 
   <button class="bb" title="Reader Mode"            onclick="send('readerMode')">📖</button>
+  <button class="bb" id="btn-bookmark" title="Add to bookmarks (Ctrl+D)"
+          onclick="bookmarkClick()">☆</button>
+  <button class="bb" id="btn-bookmark-list" title="Show bookmarks"
+          onclick="toggleBookmarkPanel()">≡</button>
   <button class="bb" id="btn-agent" style="font-size:12px;min-width:88px"
           title="Summarize with Bauer Agent"
           onclick="agentClick()">🤖 Resumir</button>
 
   <span id="ram">-- MB</span>
+</div>
+
+<!-- Download toast -->
+<div id="dl-toast"></div>
+
+<!-- Bookmark panel -->
+<div id="bookmark-panel">
+  <div id="bookmark-header">
+    ☆ Favoritos
+    <span id="bookmark-close-btn" onclick="document.getElementById('bookmark-panel').style.display='none'">✕</span>
+  </div>
+  <div id="bookmark-list"></div>
 </div>
 
 <!-- Agent result -->
@@ -229,6 +314,92 @@ function agentClick() {
   var b = document.getElementById('btn-agent');
   b.textContent = '⏳…'; b.disabled = true;
   send('agentSummarize');
+}
+
+// ── Downloads (F-04) ─────────────────────────────────────────────────────
+
+var _dlTimer = null;
+
+function showDownload(filename, status) {
+  var el = document.getElementById('dl-toast');
+  el.className = '';
+  clearTimeout(_dlTimer);
+  if (status === 'started') {
+    el.textContent = '⬇ ' + filename;
+    el.style.display = 'block';
+  } else if (status === 'done') {
+    el.textContent = '✓ ' + filename;
+    el.className = 'done';
+    el.style.display = 'block';
+    _dlTimer = setTimeout(function() { el.style.display = 'none'; }, 4000);
+  } else {
+    el.textContent = '✗ ' + filename;
+    el.className = 'error';
+    el.style.display = 'block';
+    _dlTimer = setTimeout(function() { el.style.display = 'none'; }, 4000);
+  }
+}
+
+// ── Bookmarks (F-03) ─────────────────────────────────────────────────────
+
+var _bookmarked = false;
+
+function bookmarkClick() {
+  if (_bookmarked) {
+    send('removeBookmark', { url: document.getElementById('url').value });
+  } else {
+    send('saveBookmark');
+  }
+}
+
+function toggleBookmarkPanel() {
+  var p = document.getElementById('bookmark-panel');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+}
+
+// Called from Rust — rebuild the bookmark list panel
+function setBookmarks(bookmarks) {
+  var list = document.getElementById('bookmark-list');
+  list.innerHTML = '';
+  if (!bookmarks || bookmarks.length === 0) {
+    list.innerHTML = '<div id="bookmark-empty">Nenhum favorito ainda</div>';
+    return;
+  }
+  bookmarks.forEach(function(b) {
+    var row = document.createElement('div');
+    row.className = 'bookmark-row';
+    row.onclick = function() {
+      send('navigate', { url: b.url });
+      document.getElementById('bookmark-panel').style.display = 'none';
+    };
+    var info = document.createElement('div');
+    info.className = 'bookmark-info';
+    var title = document.createElement('div');
+    title.className = 'bookmark-title';
+    title.textContent = b.title || b.url;
+    var url = document.createElement('div');
+    url.className = 'bookmark-url';
+    url.textContent = b.url;
+    info.appendChild(title);
+    info.appendChild(url);
+    var del = document.createElement('button');
+    del.className = 'bookmark-del';
+    del.textContent = '×';
+    del.title = 'Remove bookmark';
+    del.onclick = function(e) { e.stopPropagation(); send('removeBookmark', { url: b.url }); };
+    row.appendChild(info);
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+
+// Called from Rust — update ☆/★ state of the bookmark button
+function setBookmarkState(isBookmarked) {
+  _bookmarked = isBookmarked;
+  var btn = document.getElementById('btn-bookmark');
+  btn.textContent = isBookmarked ? '★' : '☆';
+  btn.title = isBookmarked ? 'Remove from bookmarks (Ctrl+D)' : 'Add to bookmarks (Ctrl+D)';
+  btn.classList.toggle('bookmarked', isBookmarked);
 }
 
 // ── Called from Rust ─────────────────────────────────────────────────────
@@ -319,6 +490,7 @@ document.addEventListener('keydown', function(e) {
     }
   }
   if (e.ctrlKey && e.key === 'w') { send('closeTab', { index: -1 }); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 'd') { bookmarkClick(); e.preventDefault(); }
 });
 </script>
 </body>
