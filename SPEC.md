@@ -222,6 +222,23 @@ enabled = true
 
 ---
 
+## 11c. F-03 — Favoritos (Bookmarks)
+
+| # | Spec | Status |
+|---|------|--------|
+| F-03.1 | Botão ☆/★ na toolbar adiciona ou remove a página atual dos favoritos | `[x]` |
+| F-03.2 | Favoritos salvos em `~/.bauer-browser/bookmarks.json` | `[x]` |
+| F-03.3 | Cada favorito contém: `url`, `title`, `timestamp` | `[x]` |
+| F-03.4 | Ícone muda para ★ (dourado) quando a página atual já é favorito | `[x]` |
+| F-03.5 | Painel de favoritos abre/fecha ao clicar no botão ≡ | `[x]` |
+| F-03.6 | Clicar em um favorito no painel navega para aquela URL | `[x]` |
+| F-03.7 | Favoritos podem ser removidos individualmente pelo painel (botão ×) | `[x]` |
+| F-03.8 | Favoritos são carregados na inicialização | `[x]` |
+| F-03.9 | Ctrl+D adiciona/remove favorito da página atual | `[x]` |
+| F-03.10 | Trocar de aba ou navegar atualiza o estado ☆/★ do botão | `[x]` |
+
+---
+
 ## 12. Bugs Conhecidos
 
 Todos os bugs da Fase 0 foram corrigidos. ✓

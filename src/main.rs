@@ -10,6 +10,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod agent;
+mod bookmarks;
 mod config;
 mod filter;
 mod history;
@@ -54,16 +55,18 @@ const CONTENT_IPC_JS: &str = r#"(function(){})();"#;
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 enum Cmd {
-    Navigate     { url: String },
+    Navigate        { url: String },
     Back,
     Forward,
     Reload,
-    SetMode      { mode: String },
+    SetMode         { mode: String },
     ReaderMode,
     AgentSummarize,
+    SaveBookmark,
+    RemoveBookmark  { url: String },
     NewTab,
-    SwitchTab    { index: usize },
-    CloseTab     { index: usize },
+    SwitchTab       { index: usize },
+    CloseTab        { index: usize },
 }
 
 // ── IPC messages (content WebViews → Rust) ───────────────────────────────────
@@ -159,7 +162,8 @@ fn main() -> wry::Result<()> {
 
     logger::init(cfg.log_enabled);
 
-    let history_urls = history::load_urls();
+    let history_urls    = history::load_urls();
+    let mut bm_list     = bookmarks::load();
 
     let init_script = format!(
         "var __BAUER_BLOCKED__={};\n{}\n{}",
@@ -263,6 +267,16 @@ fn main() -> wry::Result<()> {
         "if(typeof setHistory==='function')setHistory({})", history_json
     ));
 
+    // Send bookmarks and initial star state to chrome (F-03)
+    let bm_json = serde_json::to_string(&bm_list).unwrap_or_else(|_| "[]".to_string());
+    let _ = chrome.evaluate_script(&format!(
+        "if(typeof setBookmarks==='function')setBookmarks({})", bm_json
+    ));
+    let is_bm = bm_list.iter().any(|b| b.url == home);
+    let _ = chrome.evaluate_script(&format!(
+        "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
+    ));
+
     // ── Event loop ─────────────────────────────────────────────────────────────
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -296,6 +310,33 @@ fn main() -> wry::Result<()> {
                 }
 
                 // Step 1: request page content via content IPC; agent fires in PageContent handler
+                Cmd::SaveBookmark => {
+                    let url   = tab_metas[active_tab].url.clone();
+                    let title = tab_metas[active_tab].title.clone();
+                    bookmarks::add(&url, &title, &mut bm_list);
+                    let json = serde_json::to_string(&bm_list).unwrap_or_else(|_| "[]".to_string());
+                    let _ = chrome.evaluate_script(&format!(
+                        "if(typeof setBookmarks==='function')setBookmarks({})", json
+                    ));
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setBookmarkState==='function')setBookmarkState(true)"
+                    );
+                }
+
+                Cmd::RemoveBookmark { url } => {
+                    bookmarks::remove(&url, &mut bm_list);
+                    let json = serde_json::to_string(&bm_list).unwrap_or_else(|_| "[]".to_string());
+                    let _ = chrome.evaluate_script(&format!(
+                        "if(typeof setBookmarks==='function')setBookmarks({})", json
+                    ));
+                    let active_url = tab_metas[active_tab].url.clone();
+                    if url == active_url {
+                        let _ = chrome.evaluate_script(
+                            "if(typeof setBookmarkState==='function')setBookmarkState(false)"
+                        );
+                    }
+                }
+
                 Cmd::AgentSummarize => {
                     let url = tab_metas[active_tab].url.clone();
                     logger::log_agent_request(&url);
@@ -335,6 +376,11 @@ fn main() -> wry::Result<()> {
                         let _ = chrome.evaluate_script(&js);
                         let title = tab_metas[active_tab].title.clone();
                         window.set_title(&format!("{title} — Bauer Browser"));
+                        // Update bookmark star for the newly active tab (F-03)
+                        let is_bm = bm_list.iter().any(|b| b.url == url);
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
+                        ));
                     }
                 }
 
@@ -394,6 +440,11 @@ fn main() -> wry::Result<()> {
                     let _ = chrome.evaluate_script(&format!(
                         "if(typeof addToHistory==='function')addToHistory('{}')",
                         js_escape(&url)
+                    ));
+                    // Update bookmark star state (F-03)
+                    let is_bm = bm_list.iter().any(|b| b.url == url);
+                    let _ = chrome.evaluate_script(&format!(
+                        "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
                     ));
                     window.set_title(&format!("{url} — Bauer Browser"));
                     let js = format!(
