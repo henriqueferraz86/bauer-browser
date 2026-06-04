@@ -12,6 +12,7 @@
 mod agent;
 mod config;
 mod filter;
+mod history;
 mod logger;
 mod mode;
 mod resource;
@@ -167,6 +168,8 @@ fn main() -> wry::Result<()> {
 
     logger::init(cfg.log_enabled);
 
+    let history_urls = history::load_urls();
+
     let init_script = format!(
         "var __BAUER_BLOCKED__={};\n{}\n{}",
         blocklist.domains_as_js_array(),
@@ -260,6 +263,12 @@ fn main() -> wry::Result<()> {
     let mut cur_mode = default_mode.clone();
 
     sync_tabs(&chrome, &tab_metas, open_count, active_tab, max_tabs);
+
+    // Send history to chrome datalist for URL autocomplete (F-02)
+    let history_json = serde_json::to_string(&history_urls).unwrap_or_else(|_| "[]".to_string());
+    let _ = chrome.evaluate_script(&format!(
+        "if(typeof setHistory==='function')setHistory({})", history_json
+    ));
 
     // ── Event loop ─────────────────────────────────────────────────────────────
     event_loop.run(move |event, _, control_flow| {
@@ -387,6 +396,12 @@ fn main() -> wry::Result<()> {
                 }
                 if tab == active_tab {
                     logger::log_navigation(&url, &cur_mode, 0.0);
+                    // Persist to history and push new URL to chrome autocomplete (F-02)
+                    history::append(&url, &tab_metas[tab].title);
+                    let _ = chrome.evaluate_script(&format!(
+                        "if(typeof addToHistory==='function')addToHistory('{}')",
+                        js_escape(&url)
+                    ));
                     window.set_title(&format!("{url} — Bauer Browser"));
                     let js = format!(
                         "if(typeof setUrlBar==='function')setUrlBar('{}')",

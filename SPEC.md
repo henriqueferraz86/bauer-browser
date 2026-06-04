@@ -209,6 +209,19 @@ enabled = true
 
 ---
 
+## 11b. F-02 — Histórico de Navegação
+
+| # | Spec | Status |
+|---|------|--------|
+| F-02.1 | Cada URL navegada com sucesso é gravada em `~/.bauer-browser/history.jsonl` | `[x]` |
+| F-02.2 | Cada entrada contém: `url`, `title`, `timestamp` | `[x]` |
+| F-02.3 | `about:blank` e URLs do sistema não são gravadas | `[x]` |
+| F-02.4 | Histórico é carregado na inicialização (máx. 500 entradas mais recentes) | `[x]` |
+| F-02.5 | URL bar exibe sugestões de autocomplete do histórico ao digitar | `[x]` |
+| F-02.6 | Novas URLs aparecem imediatamente no autocomplete após navegação | `[x]` |
+
+---
+
 ## 12. Bugs Conhecidos
 
 Todos os bugs da Fase 0 foram corrigidos. ✓
@@ -232,7 +245,6 @@ Janela funcional, URL bar, modos, bloqueio de navegação top-level, RAM visíve
 
 ### Fase 1 — Estabilização (pós-MVP)
 - **F-01** Favicon nas labels das abas
-- **F-02** Histórico de navegação local (persist em disco + autocomplete na URL bar)
 - **F-03** Favoritos (salvar / listar / abrir)
 - **F-04** Download de arquivos
 - **F-05** Ícone personalizado do aplicativo

@@ -181,9 +181,10 @@ button.bb:active { background: #545c7e; }
   <button class="bb" title="Forward (Alt+→)" onclick="send('forward')">→</button>
   <button class="bb" title="Reload (F5)"     onclick="send('reload')">↺</button>
 
-  <input id="url" type="text" placeholder="Enter URL or search…"
+  <input id="url" type="text" list="url-history" placeholder="Enter URL or search…"
          onkeydown="if(event.key==='Enter')navigate()"
          onfocus="this.select()" />
+  <datalist id="url-history"></datalist>
 
   <select id="mode" title="Page mode" onchange="send('setMode',{mode:this.value})">
     <option value="lite">🌿 Lite</option>
@@ -231,6 +232,27 @@ function agentClick() {
 }
 
 // ── Called from Rust ─────────────────────────────────────────────────────
+
+// Populate datalist with history URLs on startup (F-02)
+function setHistory(urls) {
+  var dl = document.getElementById('url-history');
+  dl.innerHTML = '';
+  urls.forEach(function(url) {
+    var opt = document.createElement('option');
+    opt.value = url;
+    dl.appendChild(opt);
+  });
+}
+
+// Prepend a new URL to the datalist after navigation (F-02)
+function addToHistory(url) {
+  var dl = document.getElementById('url-history');
+  var existing = Array.from(dl.options).find(function(o) { return o.value === url; });
+  if (existing) { dl.removeChild(existing); }
+  var opt = document.createElement('option');
+  opt.value = url;
+  dl.insertBefore(opt, dl.firstChild);
+}
 
 function setUrlBar(url) {
   document.getElementById('url').value = url;
