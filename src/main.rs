@@ -10,12 +10,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod agent;
+mod bookmarks;
 mod config;
 mod filter;
+mod history;
 mod logger;
 mod mode;
 mod resource;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -44,33 +47,28 @@ const MAX_TABS: usize = 5;
 const CHROME_HTML: &str = include_str!("../chrome/index.html");
 const ADBLOCK_JS:  &str = include_str!("../chrome/adblock.js");
 
-// Injected into every content WebView: watches document.title and lets Rust
-// extract page text for the Bauer Agent.
-const CONTENT_IPC_JS: &str = r#"(function(){
-    function _reportTitle(){
-        try{window.ipc.postMessage(JSON.stringify({action:'titleChanged',title:document.title}));}catch(_){}
-    }
-    document.addEventListener('DOMContentLoaded',_reportTitle);
-    window.addEventListener('load',_reportTitle);
-    new MutationObserver(_reportTitle)
-        .observe(document.documentElement,{subtree:true,childList:true,characterData:true});
-})();"#;
+// Injected into every content WebView: lets Rust extract page text for the Bauer Agent.
+// Title changes are handled natively via with_document_title_changed_handler (not IPC).
+const CONTENT_IPC_JS: &str = r#"(function(){})();"#;
 
 // ── IPC commands (chrome → Rust) ─────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 enum Cmd {
-    Navigate     { url: String },
+    Navigate        { url: String },
     Back,
     Forward,
     Reload,
-    SetMode      { mode: String },
+    SetMode         { mode: String },
     ReaderMode,
     AgentSummarize,
+    SaveBookmark,
+    RemoveBookmark  { url: String },
+    ShowBookmarks,
     NewTab,
-    SwitchTab    { index: usize },
-    CloseTab     { index: usize },
+    SwitchTab       { index: usize },
+    CloseTab        { index: usize },
 }
 
 // ── IPC messages (content WebViews → Rust) ───────────────────────────────────
@@ -78,8 +76,7 @@ enum Cmd {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 enum ContentMsg {
-    TitleChanged { title: String },
-    PageContent  { content: String, url: String },
+    PageContent { content: String, url: String },
 }
 
 // ── Custom events ─────────────────────────────────────────────────────────────
@@ -87,29 +84,32 @@ enum ContentMsg {
 #[derive(Debug)]
 enum AppEvent {
     Command(Cmd),
-    TabUrlChanged   { tab: usize, url: String },
-    TabTitleChanged { tab: usize, title: String },
+    TabUrlChanged    { tab: usize, url: String },
+    TabTitleChanged  { tab: usize, title: String },
     RamUpdate(f64),
     AgentResult(String),
-    PageContent     { tab: usize, url: String, content: String },
+    PageContent      { tab: usize, url: String, content: String },
+    DownloadStarted  { filename: String },
+    DownloadFinished { filename: String, success: bool },
 }
 
 // ── Tab metadata ──────────────────────────────────────────────────────────────
 
 #[derive(Clone)]
 struct TabMeta {
-    url:   String,
-    title: String,
-    mode:  String,
-    open:  bool,
+    url:         String,
+    title:       String,
+    mode:        String,
+    open:        bool,
+    reader_mode: bool,
 }
 
 impl TabMeta {
     fn new(url: &str, default_mode: &str) -> Self {
-        Self { url: url.into(), title: "New Tab".into(), mode: default_mode.into(), open: true }
+        Self { url: url.into(), title: "New Tab".into(), mode: default_mode.into(), open: true, reader_mode: false }
     }
     fn blank(default_mode: &str) -> Self {
-        Self { url: "about:blank".into(), title: "".into(), mode: default_mode.into(), open: false }
+        Self { url: "about:blank".into(), title: "".into(), mode: default_mode.into(), open: false, reader_mode: false }
     }
 }
 
@@ -155,6 +155,41 @@ fn sync_tabs(chrome: &wry::WebView, metas: &[TabMeta], open_count: usize, active
     let _ = chrome.evaluate_script(&js);
 }
 
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+}
+
+fn generate_bookmarks_html(list: &[bookmarks::Bookmark]) -> String {
+    let items = if list.is_empty() {
+        "<p class=\"empty\">Nenhum favorito ainda.<br>Clique ☆ na toolbar para adicionar.</p>".to_string()
+    } else {
+        let rows: String = list.iter().map(|b| format!(
+            "<li><a href=\"{href}\">{title}</a><span class=\"url\">{url}</span></li>",
+            href  = html_escape(&b.url),
+            title = html_escape(if b.title.is_empty() { &b.url } else { &b.title }),
+            url   = html_escape(&b.url),
+        )).collect();
+        format!("<ul>{rows}</ul>")
+    };
+    format!(r#"<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Favoritos — Bauer Browser</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:system-ui,-apple-system,sans-serif;background:#1e2030;color:#c0caf5;
+      padding:48px 24px;max-width:720px;margin:0 auto}}
+h1{{color:#7aa2f7;font-size:22px;margin-bottom:24px}}
+ul{{list-style:none}}
+li{{padding:14px 0;border-bottom:1px solid #2a2d3e}}
+a{{color:#7dcfff;font-size:15px;text-decoration:none;display:block;margin-bottom:4px}}
+a:hover{{color:#c0caf5;text-decoration:underline}}
+.url{{display:block;font-size:11px;color:#565f89}}
+p.empty{{color:#565f89;text-align:center;margin-top:60px;line-height:2}}
+</style></head><body>
+<h1>☆ Favoritos</h1>
+{items}
+</body></html>"#)
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 fn main() -> wry::Result<()> {
@@ -166,6 +201,9 @@ fn main() -> wry::Result<()> {
     let blocklist    = Arc::new(BlockList::load());
 
     logger::init(cfg.log_enabled);
+
+    let history_urls    = history::load_urls();
+    let mut bm_list     = bookmarks::load();
 
     let init_script = format!(
         "var __BAUER_BLOCKED__={};\n{}\n{}",
@@ -218,6 +256,9 @@ fn main() -> wry::Result<()> {
             let url         = if i == 0 { home.as_str() } else { "about:blank" };
             let rect        = if i == 0 { content_rect(win_w, win_h) } else { hidden_rect() };
 
+            let proxy_title = proxy.clone();
+            let proxy_dls   = proxy.clone();
+            let proxy_dlc   = proxy.clone();
             WebViewBuilder::new_as_child(&window)
                 .with_bounds(rect)
                 .with_url(url)
@@ -227,12 +268,34 @@ fn main() -> wry::Result<()> {
                     let _ = proxy_nav.send_event(AppEvent::TabUrlChanged { tab: i, url });
                     true
                 })
-                // Receives titleChanged and pageContent messages from content pages (B-01, B-02)
+                // Native title handler — fires whenever document.title changes (B-01)
+                .with_document_title_changed_handler(move |title: String| {
+                    let _ = proxy_title.send_event(AppEvent::TabTitleChanged { tab: i, title });
+                })
+                // Download started: redirect destination to ~/Downloads/ (F-04)
+                .with_download_started_handler(move |_url: String, path: &mut PathBuf| {
+                    let filename = path
+                        .file_name()
+                        .map(|f| f.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "download".to_string());
+                    let dl_dir = dirs::download_dir()
+                        .unwrap_or_else(|| PathBuf::from("."));
+                    *path = dl_dir.join(&filename);
+                    let _ = proxy_dls.send_event(AppEvent::DownloadStarted { filename });
+                    true
+                })
+                // Download completed: notify chrome UI (F-04)
+                .with_download_completed_handler(move |_url: String, path: Option<PathBuf>, success: bool| {
+                    let filename = path
+                        .as_ref()
+                        .and_then(|p| p.file_name())
+                        .map(|f| f.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "download".to_string());
+                    let _ = proxy_dlc.send_event(AppEvent::DownloadFinished { filename, success });
+                })
+                // IPC handler for page content extraction (used by Bauer Agent, B-02)
                 .with_ipc_handler(move |msg: String| {
                     match serde_json::from_str::<ContentMsg>(&msg) {
-                        Ok(ContentMsg::TitleChanged { title }) => {
-                            let _ = proxy_ipc.send_event(AppEvent::TabTitleChanged { tab: i, title });
-                        }
                         Ok(ContentMsg::PageContent { content, url }) => {
                             let _ = proxy_ipc.send_event(AppEvent::PageContent { tab: i, url, content });
                         }
@@ -261,6 +324,18 @@ fn main() -> wry::Result<()> {
 
     sync_tabs(&chrome, &tab_metas, open_count, active_tab, max_tabs);
 
+    // Send history to chrome datalist for URL autocomplete (F-02)
+    let history_json = serde_json::to_string(&history_urls).unwrap_or_else(|_| "[]".to_string());
+    let _ = chrome.evaluate_script(&format!(
+        "if(typeof setHistory==='function')setHistory({})", history_json
+    ));
+
+    // Send initial bookmark star state to chrome (F-03)
+    let is_bm = bm_list.iter().any(|b| b.url == home);
+    let _ = chrome.evaluate_script(&format!(
+        "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
+    ));
+
     // ── Event loop ─────────────────────────────────────────────────────────────
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -271,10 +346,26 @@ fn main() -> wry::Result<()> {
                 Cmd::Navigate { url } => {
                     let url = normalize_url(&url);
                     tab_metas[active_tab].url = url.clone();
+                    tab_metas[active_tab].reader_mode = false;
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setReaderMode==='function')setReaderMode(false)"
+                    );
                     content_views[active_tab].load_url(&url);
                 }
-                Cmd::Back    => { let _ = content_views[active_tab].evaluate_script("history.back()"); }
-                Cmd::Forward => { let _ = content_views[active_tab].evaluate_script("history.forward()"); }
+                Cmd::Back    => {
+                    tab_metas[active_tab].reader_mode = false;
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setReaderMode==='function')setReaderMode(false)"
+                    );
+                    let _ = content_views[active_tab].evaluate_script("history.back()");
+                }
+                Cmd::Forward => {
+                    tab_metas[active_tab].reader_mode = false;
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setReaderMode==='function')setReaderMode(false)"
+                    );
+                    let _ = content_views[active_tab].evaluate_script("history.forward()");
+                }
                 Cmd::Reload  => { let _ = content_views[active_tab].evaluate_script("location.reload()"); }
 
                 Cmd::SetMode { mode } => {
@@ -290,10 +381,54 @@ fn main() -> wry::Result<()> {
                 }
 
                 Cmd::ReaderMode => {
-                    let _ = content_views[active_tab].evaluate_script(READER_MODE_JS);
+                    if tab_metas[active_tab].reader_mode {
+                        // Deactivate: reload restores the original page
+                        tab_metas[active_tab].reader_mode = false;
+                        let _ = content_views[active_tab].evaluate_script("location.reload()");
+                        let _ = chrome.evaluate_script(
+                            "if(typeof setReaderMode==='function')setReaderMode(false)"
+                        );
+                    } else {
+                        tab_metas[active_tab].reader_mode = true;
+                        let _ = content_views[active_tab].evaluate_script(READER_MODE_JS);
+                        let _ = chrome.evaluate_script(
+                            "if(typeof setReaderMode==='function')setReaderMode(true)"
+                        );
+                    }
                 }
 
                 // Step 1: request page content via content IPC; agent fires in PageContent handler
+                Cmd::ShowBookmarks => {
+                    let html = generate_bookmarks_html(&bm_list);
+                    let escaped = serde_json::to_string(&html).unwrap_or_else(|_| "''".to_string());
+                    let _ = content_views[active_tab].evaluate_script(&format!(
+                        "document.open();document.write({escaped});document.close();"
+                    ));
+                    tab_metas[active_tab].reader_mode = false;
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setReaderMode==='function')setReaderMode(false)"
+                    );
+                }
+
+                Cmd::SaveBookmark => {
+                    let url   = tab_metas[active_tab].url.clone();
+                    let title = tab_metas[active_tab].title.clone();
+                    bookmarks::add(&url, &title, &mut bm_list);
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setBookmarkState==='function')setBookmarkState(true)"
+                    );
+                }
+
+                Cmd::RemoveBookmark { url } => {
+                    let active_url = tab_metas[active_tab].url.clone();
+                    bookmarks::remove(&url, &mut bm_list);
+                    if url == active_url {
+                        let _ = chrome.evaluate_script(
+                            "if(typeof setBookmarkState==='function')setBookmarkState(false)"
+                        );
+                    }
+                }
+
                 Cmd::AgentSummarize => {
                     let url = tab_metas[active_tab].url.clone();
                     logger::log_agent_request(&url);
@@ -333,6 +468,16 @@ fn main() -> wry::Result<()> {
                         let _ = chrome.evaluate_script(&js);
                         let title = tab_metas[active_tab].title.clone();
                         window.set_title(&format!("{title} — Bauer Browser"));
+                        // Update bookmark star for the newly active tab (F-03)
+                        let is_bm = bm_list.iter().any(|b| b.url == url);
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
+                        ));
+                        // Sync reader mode button state (fix toggle)
+                        let rm = tab_metas[active_tab].reader_mode;
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setReaderMode==='function')setReaderMode({})", rm
+                        ));
                     }
                 }
 
@@ -387,6 +532,17 @@ fn main() -> wry::Result<()> {
                 }
                 if tab == active_tab {
                     logger::log_navigation(&url, &cur_mode, 0.0);
+                    // Persist to history and push new URL to chrome autocomplete (F-02)
+                    history::append(&url, &tab_metas[tab].title);
+                    let _ = chrome.evaluate_script(&format!(
+                        "if(typeof addToHistory==='function')addToHistory('{}')",
+                        js_escape(&url)
+                    ));
+                    // Update bookmark star state (F-03)
+                    let is_bm = bm_list.iter().any(|b| b.url == url);
+                    let _ = chrome.evaluate_script(&format!(
+                        "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
+                    ));
                     window.set_title(&format!("{url} — Bauer Browser"));
                     let js = format!(
                         "if(typeof setUrlBar==='function')setUrlBar('{}')",
@@ -449,6 +605,39 @@ fn main() -> wry::Result<()> {
                 let scale = window.scale_factor();
                 cur_w = (size.width  as f64 / scale) as u32;
                 cur_h = (size.height as f64 / scale) as u32;
+                let _ = chrome.set_bounds(Rect { x: 0, y: 0, width: cur_w, height: CHROME_H });
+                apply_tab_bounds(&content_views, active_tab, cur_w, cur_h);
+            }
+
+            // ── Download started (F-04) ───────────────────────────────────────
+            Event::UserEvent(AppEvent::DownloadStarted { filename }) => {
+                let js = format!(
+                    "if(typeof showDownload==='function')showDownload('{}','started')",
+                    js_escape(&filename)
+                );
+                let _ = chrome.evaluate_script(&js);
+            }
+
+            // ── Download finished (F-04) ──────────────────────────────────────
+            Event::UserEvent(AppEvent::DownloadFinished { filename, success }) => {
+                let status = if success { "done" } else { "error" };
+                let js = format!(
+                    "if(typeof showDownload==='function')showDownload('{}','{}')",
+                    js_escape(&filename), status
+                );
+                let _ = chrome.evaluate_script(&js);
+            }
+
+            // ── DPI / monitor change ──────────────────────────────────────────
+            // Fires when the window moves to a different monitor or the OS
+            // display scale changes. Recalculate logical bounds so WebViews
+            // cover the full window at the new scale factor.
+            Event::WindowEvent {
+                event: WindowEvent::ScaleFactorChanged { new_inner_size, .. }, ..
+            } => {
+                let scale = window.scale_factor();
+                cur_w = (new_inner_size.width  as f64 / scale) as u32;
+                cur_h = (new_inner_size.height as f64 / scale) as u32;
                 let _ = chrome.set_bounds(Rect { x: 0, y: 0, width: cur_w, height: CHROME_H });
                 apply_tab_bounds(&content_views, active_tab, cur_w, cur_h);
             }

@@ -209,6 +209,49 @@ enabled = true
 
 ---
 
+## 11b. F-02 — Histórico de Navegação
+
+| # | Spec | Status |
+|---|------|--------|
+| F-02.1 | Cada URL navegada com sucesso é gravada em `~/.bauer-browser/history.jsonl` | `[x]` |
+| F-02.2 | Cada entrada contém: `url`, `title`, `timestamp` | `[x]` |
+| F-02.3 | `about:blank` e URLs do sistema não são gravadas | `[x]` |
+| F-02.4 | Histórico é carregado na inicialização (máx. 500 entradas mais recentes) | `[x]` |
+| F-02.5 | URL bar exibe sugestões de autocomplete do histórico ao digitar | `[x]` |
+| F-02.6 | Novas URLs aparecem imediatamente no autocomplete após navegação | `[x]` |
+
+---
+
+## 11c. F-03 — Favoritos (Bookmarks)
+
+| # | Spec | Status |
+|---|------|--------|
+| F-03.1 | Botão ☆/★ na toolbar adiciona ou remove a página atual dos favoritos | `[x]` |
+| F-03.2 | Favoritos salvos em `~/.bauer-browser/bookmarks.json` | `[x]` |
+| F-03.3 | Cada favorito contém: `url`, `title`, `timestamp` | `[x]` |
+| F-03.4 | Ícone muda para ★ (dourado) quando a página atual já é favorito | `[x]` |
+| F-03.5 | Painel de favoritos abre/fecha ao clicar no botão ≡ | `[x]` |
+| F-03.6 | Clicar em um favorito no painel navega para aquela URL | `[x]` |
+| F-03.7 | Favoritos podem ser removidos individualmente pelo painel (botão ×) | `[x]` |
+| F-03.8 | Favoritos são carregados na inicialização | `[x]` |
+| F-03.9 | Ctrl+D adiciona/remove favorito da página atual | `[x]` |
+| F-03.10 | Trocar de aba ou navegar atualiza o estado ☆/★ do botão | `[x]` |
+
+---
+
+## 11d. F-04 — Downloads
+
+| # | Spec | Status |
+|---|------|--------|
+| F-04.1 | Clicar em link de download salva o arquivo automaticamente | `[x]` |
+| F-04.2 | Arquivo salvo em `~/Downloads/` | `[x]` |
+| F-04.3 | Toast na toolbar exibe `⬇ filename` quando download inicia | `[x]` |
+| F-04.4 | Toast atualiza para `✓ filename` ao completar ou `✗ filename` se falhar | `[x]` |
+| F-04.5 | Toast desaparece automaticamente 4 s após o término | `[x]` |
+| F-04.6 | Múltiplos downloads simultâneos suportados | `[x]` |
+
+---
+
 ## 12. Bugs Conhecidos
 
 Todos os bugs da Fase 0 foram corrigidos. ✓
@@ -232,7 +275,6 @@ Janela funcional, URL bar, modos, bloqueio de navegação top-level, RAM visíve
 
 ### Fase 1 — Estabilização (pós-MVP)
 - **F-01** Favicon nas labels das abas
-- **F-02** Histórico de navegação local (persist em disco + autocomplete na URL bar)
 - **F-03** Favoritos (salvar / listar / abrir)
 - **F-04** Download de arquivos
 - **F-05** Ícone personalizado do aplicativo

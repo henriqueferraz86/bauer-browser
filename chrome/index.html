@@ -138,6 +138,33 @@ button.bb:active { background: #545c7e; }
 #ram { font-size: 11px; min-width: 58px; text-align: right; color: #565f89; }
 #ram.alert { color: #f7768e; }
 
+/* ── Download toast ───────────────────────────────────── */
+#dl-toast {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0;
+  padding: 6px 14px;
+  background: #1a1c2a;
+  border: 1px solid #414868;
+  border-radius: 0 8px 0 0;
+  font-size: 12px;
+  color: #c0caf5;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 9997;
+}
+#dl-toast.done  { border-color: #9ece6a; color: #9ece6a; }
+#dl-toast.error { border-color: #f7768e; color: #f7768e; }
+
+/* ── Reader mode button active state ──────────────────── */
+#btn-reader.active { background: #3d59a1; border-color: #7aa2f7; color: #c0caf5; }
+
+/* ── Bookmark button active state ─────────────────────── */
+#btn-bookmark.bookmarked { color: #e0af68; }
+
+
 /* ── Agent result panel ───────────────────────────────── */
 #agent-panel {
   display: none;
@@ -181,9 +208,10 @@ button.bb:active { background: #545c7e; }
   <button class="bb" title="Forward (Alt+→)" onclick="send('forward')">→</button>
   <button class="bb" title="Reload (F5)"     onclick="send('reload')">↺</button>
 
-  <input id="url" type="text" placeholder="Enter URL or search…"
+  <input id="url" type="text" list="url-history" placeholder="Enter URL or search…"
          onkeydown="if(event.key==='Enter')navigate()"
          onfocus="this.select()" />
+  <datalist id="url-history"></datalist>
 
   <select id="mode" title="Page mode" onchange="send('setMode',{mode:this.value})">
     <option value="lite">🌿 Lite</option>
@@ -191,13 +219,20 @@ button.bb:active { background: #545c7e; }
     <option value="full">🔥 Full</option>
   </select>
 
-  <button class="bb" title="Reader Mode"            onclick="send('readerMode')">📖</button>
+  <button class="bb" id="btn-reader" title="Reader Mode" onclick="send('readerMode')">📖</button>
+  <button class="bb" id="btn-bookmark" title="Add to bookmarks (Ctrl+D)"
+          onclick="bookmarkClick()">☆</button>
+  <button class="bb" id="btn-bookmark-list" title="Show bookmarks"
+          onclick="send('showBookmarks')">≡</button>
   <button class="bb" id="btn-agent" style="font-size:12px;min-width:88px"
           title="Summarize with Bauer Agent"
           onclick="agentClick()">🤖 Resumir</button>
 
   <span id="ram">-- MB</span>
 </div>
+
+<!-- Download toast -->
+<div id="dl-toast"></div>
 
 <!-- Agent result -->
 <div id="agent-panel">
@@ -230,7 +265,81 @@ function agentClick() {
   send('agentSummarize');
 }
 
+// ── Reader Mode toggle ────────────────────────────────────────────────────
+
+function setReaderMode(isActive) {
+  var btn = document.getElementById('btn-reader');
+  btn.classList.toggle('active', isActive);
+  btn.title = isActive ? 'Exit Reader Mode' : 'Reader Mode';
+}
+
+// ── Downloads (F-04) ─────────────────────────────────────────────────────
+
+var _dlTimer = null;
+
+function showDownload(filename, status) {
+  var el = document.getElementById('dl-toast');
+  el.className = '';
+  clearTimeout(_dlTimer);
+  if (status === 'started') {
+    el.textContent = '⬇ ' + filename;
+    el.style.display = 'block';
+  } else if (status === 'done') {
+    el.textContent = '✓ ' + filename;
+    el.className = 'done';
+    el.style.display = 'block';
+    _dlTimer = setTimeout(function() { el.style.display = 'none'; }, 4000);
+  } else {
+    el.textContent = '✗ ' + filename;
+    el.className = 'error';
+    el.style.display = 'block';
+    _dlTimer = setTimeout(function() { el.style.display = 'none'; }, 4000);
+  }
+}
+
+// ── Bookmarks (F-03) ─────────────────────────────────────────────────────
+
+var _bookmarked = false;
+
+function bookmarkClick() {
+  if (_bookmarked) {
+    send('removeBookmark', { url: document.getElementById('url').value });
+  } else {
+    send('saveBookmark');
+  }
+}
+
+// Called from Rust — update ☆/★ state of the bookmark button
+function setBookmarkState(isBookmarked) {
+  _bookmarked = isBookmarked;
+  var btn = document.getElementById('btn-bookmark');
+  btn.textContent = isBookmarked ? '★' : '☆';
+  btn.title = isBookmarked ? 'Remove from bookmarks (Ctrl+D)' : 'Add to bookmarks (Ctrl+D)';
+  btn.classList.toggle('bookmarked', isBookmarked);
+}
+
 // ── Called from Rust ─────────────────────────────────────────────────────
+
+// Populate datalist with history URLs on startup (F-02)
+function setHistory(urls) {
+  var dl = document.getElementById('url-history');
+  dl.innerHTML = '';
+  urls.forEach(function(url) {
+    var opt = document.createElement('option');
+    opt.value = url;
+    dl.appendChild(opt);
+  });
+}
+
+// Prepend a new URL to the datalist after navigation (F-02)
+function addToHistory(url) {
+  var dl = document.getElementById('url-history');
+  var existing = Array.from(dl.options).find(function(o) { return o.value === url; });
+  if (existing) { dl.removeChild(existing); }
+  var opt = document.createElement('option');
+  opt.value = url;
+  dl.insertBefore(opt, dl.firstChild);
+}
 
 function setUrlBar(url) {
   document.getElementById('url').value = url;
@@ -297,6 +406,7 @@ document.addEventListener('keydown', function(e) {
     }
   }
   if (e.ctrlKey && e.key === 'w') { send('closeTab', { index: -1 }); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 'd') { bookmarkClick(); e.preventDefault(); }
 });
 </script>
 </body>
