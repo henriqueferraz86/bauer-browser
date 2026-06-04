@@ -3,9 +3,7 @@ name: Build Bauer Browser
 on:
   push:
     branches: [main, master]
-  pull_request:
-    branches: [main, master]
-  workflow_dispatch:   # permite rodar manualmente pelo botão no GitHub
+  workflow_dispatch:
 
 jobs:
   build-windows:
@@ -18,65 +16,26 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
 
-      - name: Cache Cargo registry
+      - name: Cache Cargo
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build release
         run: cargo build --release
         env:
-          CARGO_TARGET_DIR: C:\cargo-target
+          # Override the local target-dir from .cargo/config.toml
+          CARGO_TARGET_DIR: D:\cargo-target
 
-      - name: Upload .exe artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bauer-browser-windows
-          path: C:\cargo-target\release\bauer-browser.exe
-          retention-days: 30
-
-  build-linux:
-    name: Linux (binary)
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libssl-dev \
-            pkg-config \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build release
-        run: cargo build --release
-
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: bauer-browser-linux
-          path: target/release/bauer-browser
+          name: bauer-browser-windows-x64
+          path: D:\cargo-target\release\bauer-browser.exe
+          if-no-files-found: error
           retention-days: 30

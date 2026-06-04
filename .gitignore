@@ -1,0 +1,16 @@
+# Rust build output (local — target-dir redirecionado via .cargo/config.toml)
+target/
+
+# Não ignorar Cargo.lock (binário = deve ser commitado)
+!Cargo.lock
+
+# Python cache (protótipo legado)
+__pycache__/
+*.pyc
+
+# Config local do usuário (não versionar)
+# config/settings.toml  ← manter comentado se quiser versionar as settings padrão
+
+# OS
+.DS_Store
+Thumbs.db
