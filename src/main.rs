@@ -65,6 +65,7 @@ enum Cmd {
     AgentSummarize,
     SaveBookmark,
     RemoveBookmark  { url: String },
+    ShowBookmarks,
     NewTab,
     SwitchTab       { index: usize },
     CloseTab        { index: usize },
@@ -152,6 +153,41 @@ fn sync_tabs(chrome: &wry::WebView, metas: &[TabMeta], open_count: usize, active
         .join(",");
     let js = format!("if(typeof updateTabs==='function')updateTabs([{tabs_json}],{active},{max_tabs})");
     let _ = chrome.evaluate_script(&js);
+}
+
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+}
+
+fn generate_bookmarks_html(list: &[bookmarks::Bookmark]) -> String {
+    let items = if list.is_empty() {
+        "<p class=\"empty\">Nenhum favorito ainda.<br>Clique ☆ na toolbar para adicionar.</p>".to_string()
+    } else {
+        let rows: String = list.iter().map(|b| format!(
+            "<li><a href=\"{href}\">{title}</a><span class=\"url\">{url}</span></li>",
+            href  = html_escape(&b.url),
+            title = html_escape(if b.title.is_empty() { &b.url } else { &b.title }),
+            url   = html_escape(&b.url),
+        )).collect();
+        format!("<ul>{rows}</ul>")
+    };
+    format!(r#"<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Favoritos — Bauer Browser</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:system-ui,-apple-system,sans-serif;background:#1e2030;color:#c0caf5;
+      padding:48px 24px;max-width:720px;margin:0 auto}}
+h1{{color:#7aa2f7;font-size:22px;margin-bottom:24px}}
+ul{{list-style:none}}
+li{{padding:14px 0;border-bottom:1px solid #2a2d3e}}
+a{{color:#7dcfff;font-size:15px;text-decoration:none;display:block;margin-bottom:4px}}
+a:hover{{color:#c0caf5;text-decoration:underline}}
+.url{{display:block;font-size:11px;color:#565f89}}
+p.empty{{color:#565f89;text-align:center;margin-top:60px;line-height:2}}
+</style></head><body>
+<h1>☆ Favoritos</h1>
+{items}
+</body></html>"#)
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -294,11 +330,7 @@ fn main() -> wry::Result<()> {
         "if(typeof setHistory==='function')setHistory({})", history_json
     ));
 
-    // Send bookmarks and initial star state to chrome (F-03)
-    let bm_json = serde_json::to_string(&bm_list).unwrap_or_else(|_| "[]".to_string());
-    let _ = chrome.evaluate_script(&format!(
-        "if(typeof setBookmarks==='function')setBookmarks({})", bm_json
-    ));
+    // Send initial bookmark star state to chrome (F-03)
     let is_bm = bm_list.iter().any(|b| b.url == home);
     let _ = chrome.evaluate_script(&format!(
         "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
@@ -366,26 +398,30 @@ fn main() -> wry::Result<()> {
                 }
 
                 // Step 1: request page content via content IPC; agent fires in PageContent handler
+                Cmd::ShowBookmarks => {
+                    let html = generate_bookmarks_html(&bm_list);
+                    let escaped = serde_json::to_string(&html).unwrap_or_else(|_| "''".to_string());
+                    let _ = content_views[active_tab].evaluate_script(&format!(
+                        "document.open();document.write({escaped});document.close();"
+                    ));
+                    tab_metas[active_tab].reader_mode = false;
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setReaderMode==='function')setReaderMode(false)"
+                    );
+                }
+
                 Cmd::SaveBookmark => {
                     let url   = tab_metas[active_tab].url.clone();
                     let title = tab_metas[active_tab].title.clone();
                     bookmarks::add(&url, &title, &mut bm_list);
-                    let json = serde_json::to_string(&bm_list).unwrap_or_else(|_| "[]".to_string());
-                    let _ = chrome.evaluate_script(&format!(
-                        "if(typeof setBookmarks==='function')setBookmarks({})", json
-                    ));
                     let _ = chrome.evaluate_script(
                         "if(typeof setBookmarkState==='function')setBookmarkState(true)"
                     );
                 }
 
                 Cmd::RemoveBookmark { url } => {
-                    bookmarks::remove(&url, &mut bm_list);
-                    let json = serde_json::to_string(&bm_list).unwrap_or_else(|_| "[]".to_string());
-                    let _ = chrome.evaluate_script(&format!(
-                        "if(typeof setBookmarks==='function')setBookmarks({})", json
-                    ));
                     let active_url = tab_metas[active_tab].url.clone();
+                    bookmarks::remove(&url, &mut bm_list);
                     if url == active_url {
                         let _ = chrome.evaluate_script(
                             "if(typeof setBookmarkState==='function')setBookmarkState(false)"

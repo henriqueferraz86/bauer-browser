@@ -164,51 +164,6 @@ button.bb:active { background: #545c7e; }
 /* ── Bookmark button active state ─────────────────────── */
 #btn-bookmark.bookmarked { color: #e0af68; }
 
-/* ── Bookmark panel ───────────────────────────────────── */
-#bookmark-panel {
-  display: none;
-  position: fixed;
-  top: 92px; right: 0;
-  width: 300px;
-  max-height: 380px;
-  background: #1a1c2a;
-  border: 1px solid #414868;
-  border-radius: 0 0 0 10px;
-  padding: 12px;
-  font-size: 13px;
-  color: #c0caf5;
-  overflow-y: auto;
-  z-index: 9998;
-  box-shadow: -4px 4px 20px rgba(0,0,0,.4);
-}
-#bookmark-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: #7aa2f7;
-}
-#bookmark-close-btn { cursor: pointer; color: #565f89; }
-#bookmark-close-btn:hover { color: #c0caf5; }
-.bookmark-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 4px;
-  border-radius: 6px;
-  cursor: pointer;
-  border-bottom: 1px solid #2a2d3e;
-}
-.bookmark-row:hover { background: #2a2d3e; }
-.bookmark-info { flex: 1; overflow: hidden; }
-.bookmark-title { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bookmark-url   { font-size: 10px; color: #565f89; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bookmark-del {
-  background: none; border: none; color: #565f89;
-  cursor: pointer; font-size: 14px; padding: 0 4px; flex-shrink: 0;
-}
-.bookmark-del:hover { color: #f7768e; }
-#bookmark-empty { color: #565f89; text-align: center; padding: 20px 0; }
 
 /* ── Agent result panel ───────────────────────────────── */
 #agent-panel {
@@ -268,7 +223,7 @@ button.bb:active { background: #545c7e; }
   <button class="bb" id="btn-bookmark" title="Add to bookmarks (Ctrl+D)"
           onclick="bookmarkClick()">☆</button>
   <button class="bb" id="btn-bookmark-list" title="Show bookmarks"
-          onclick="toggleBookmarkPanel()">≡</button>
+          onclick="send('showBookmarks')">≡</button>
   <button class="bb" id="btn-agent" style="font-size:12px;min-width:88px"
           title="Summarize with Bauer Agent"
           onclick="agentClick()">🤖 Resumir</button>
@@ -278,15 +233,6 @@ button.bb:active { background: #545c7e; }
 
 <!-- Download toast -->
 <div id="dl-toast"></div>
-
-<!-- Bookmark panel -->
-<div id="bookmark-panel">
-  <div id="bookmark-header">
-    ☆ Favoritos
-    <span id="bookmark-close-btn" onclick="document.getElementById('bookmark-panel').style.display='none'">✕</span>
-  </div>
-  <div id="bookmark-list"></div>
-</div>
 
 <!-- Agent result -->
 <div id="agent-panel">
@@ -361,47 +307,6 @@ function bookmarkClick() {
   } else {
     send('saveBookmark');
   }
-}
-
-function toggleBookmarkPanel() {
-  var p = document.getElementById('bookmark-panel');
-  p.style.display = p.style.display === 'block' ? 'none' : 'block';
-}
-
-// Called from Rust — rebuild the bookmark list panel
-function setBookmarks(bookmarks) {
-  var list = document.getElementById('bookmark-list');
-  list.innerHTML = '';
-  if (!bookmarks || bookmarks.length === 0) {
-    list.innerHTML = '<div id="bookmark-empty">Nenhum favorito ainda</div>';
-    return;
-  }
-  bookmarks.forEach(function(b) {
-    var row = document.createElement('div');
-    row.className = 'bookmark-row';
-    row.onclick = function() {
-      send('navigate', { url: b.url });
-      document.getElementById('bookmark-panel').style.display = 'none';
-    };
-    var info = document.createElement('div');
-    info.className = 'bookmark-info';
-    var title = document.createElement('div');
-    title.className = 'bookmark-title';
-    title.textContent = b.title || b.url;
-    var url = document.createElement('div');
-    url.className = 'bookmark-url';
-    url.textContent = b.url;
-    info.appendChild(title);
-    info.appendChild(url);
-    var del = document.createElement('button');
-    del.className = 'bookmark-del';
-    del.textContent = '×';
-    del.title = 'Remove bookmark';
-    del.onclick = function(e) { e.stopPropagation(); send('removeBookmark', { url: b.url }); };
-    row.appendChild(info);
-    row.appendChild(del);
-    list.appendChild(row);
-  });
 }
 
 // Called from Rust — update ☆/★ state of the bookmark button
