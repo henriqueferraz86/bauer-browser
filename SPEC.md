@@ -239,6 +239,19 @@ enabled = true
 
 ---
 
+## 11d. F-04 — Downloads
+
+| # | Spec | Status |
+|---|------|--------|
+| F-04.1 | Clicar em link de download salva o arquivo automaticamente | `[x]` |
+| F-04.2 | Arquivo salvo em `~/Downloads/` | `[x]` |
+| F-04.3 | Toast na toolbar exibe `⬇ filename` quando download inicia | `[x]` |
+| F-04.4 | Toast atualiza para `✓ filename` ao completar ou `✗ filename` se falhar | `[x]` |
+| F-04.5 | Toast desaparece automaticamente 4 s após o término | `[x]` |
+| F-04.6 | Múltiplos downloads simultâneos suportados | `[x]` |
+
+---
+
 ## 12. Bugs Conhecidos
 
 Todos os bugs da Fase 0 foram corrigidos. ✓

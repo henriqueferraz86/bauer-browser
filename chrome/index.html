@@ -138,6 +138,26 @@ button.bb:active { background: #545c7e; }
 #ram { font-size: 11px; min-width: 58px; text-align: right; color: #565f89; }
 #ram.alert { color: #f7768e; }
 
+/* ── Download toast ───────────────────────────────────── */
+#dl-toast {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0;
+  padding: 6px 14px;
+  background: #1a1c2a;
+  border: 1px solid #414868;
+  border-radius: 0 8px 0 0;
+  font-size: 12px;
+  color: #c0caf5;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 9997;
+}
+#dl-toast.done  { border-color: #9ece6a; color: #9ece6a; }
+#dl-toast.error { border-color: #f7768e; color: #f7768e; }
+
 /* ── Bookmark button active state ─────────────────────── */
 #btn-bookmark.bookmarked { color: #e0af68; }
 
@@ -253,6 +273,9 @@ button.bb:active { background: #545c7e; }
   <span id="ram">-- MB</span>
 </div>
 
+<!-- Download toast -->
+<div id="dl-toast"></div>
+
 <!-- Bookmark panel -->
 <div id="bookmark-panel">
   <div id="bookmark-header">
@@ -291,6 +314,30 @@ function agentClick() {
   var b = document.getElementById('btn-agent');
   b.textContent = '⏳…'; b.disabled = true;
   send('agentSummarize');
+}
+
+// ── Downloads (F-04) ─────────────────────────────────────────────────────
+
+var _dlTimer = null;
+
+function showDownload(filename, status) {
+  var el = document.getElementById('dl-toast');
+  el.className = '';
+  clearTimeout(_dlTimer);
+  if (status === 'started') {
+    el.textContent = '⬇ ' + filename;
+    el.style.display = 'block';
+  } else if (status === 'done') {
+    el.textContent = '✓ ' + filename;
+    el.className = 'done';
+    el.style.display = 'block';
+    _dlTimer = setTimeout(function() { el.style.display = 'none'; }, 4000);
+  } else {
+    el.textContent = '✗ ' + filename;
+    el.className = 'error';
+    el.style.display = 'block';
+    _dlTimer = setTimeout(function() { el.style.display = 'none'; }, 4000);
+  }
 }
 
 // ── Bookmarks (F-03) ─────────────────────────────────────────────────────
