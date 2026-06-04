@@ -1,0 +1,22 @@
+[
+  {"trigger":{"url-filter":".*\\.ads\\..*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\/ads\\/.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.adserver\\..*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.advertising\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.adblade\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.adzerk\\.net.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.bidswitch\\.net.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.media\\.net.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.taboola\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.outbrain\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.revcontent\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.sharethrough\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.triplelift\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.sovrn\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.indexexchange\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.appnexus\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*pagead2\\.googlesyndication\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*partner\\.googleadservices\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.amazon-adsystem\\.com.*"},"action":{"type":"block"}},
+  {"trigger":{"url-filter":".*\\.yieldmo\\.com.*"},"action":{"type":"block"}}
+]

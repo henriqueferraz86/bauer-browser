@@ -1,0 +1,20 @@
+# Bauer Browser — User Settings
+# Edit this file to customize your browser.
+
+[browser]
+max_tabs     = 5
+default_mode = "normal"
+home_url     = "https://duckduckgo.com"
+ram_alert_mb = 300
+
+[blocklists]
+block_trackers = true
+block_ads      = true
+
+[agent]
+enabled         = true
+base_url        = "http://localhost:8742"
+timeout_seconds = 10
+
+[logging]
+enabled = true

@@ -1,0 +1,14 @@
+C:\Users\henri\Documents\PROJETOS\Bauer Browser\Bauer Browser\target\debug\deps\serde-b16e63605bd28462.d: C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\henri\Documents\PROJETOS\Bauer\ Browser\Bauer\ Browser\target\debug\build\serde-8c3044f2974d8331\out/private.rs
+
+C:\Users\henri\Documents\PROJETOS\Bauer Browser\Bauer Browser\target\debug\deps\libserde-b16e63605bd28462.rlib: C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\henri\Documents\PROJETOS\Bauer\ Browser\Bauer\ Browser\target\debug\build\serde-8c3044f2974d8331\out/private.rs
+
+C:\Users\henri\Documents\PROJETOS\Bauer Browser\Bauer Browser\target\debug\deps\libserde-b16e63605bd28462.rmeta: C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\henri\Documents\PROJETOS\Bauer\ Browser\Bauer\ Browser\target\debug\build\serde-8c3044f2974d8331\out/private.rs
+
+C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs:
+C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs:
+C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs:
+C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs:
+C:\Users\henri\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs:
+C:\Users\henri\Documents\PROJETOS\Bauer\ Browser\Bauer\ Browser\target\debug\build\serde-8c3044f2974d8331\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\henri\\Documents\\PROJETOS\\Bauer Browser\\Bauer Browser\\target\\debug\\build\\serde-8c3044f2974d8331\\out

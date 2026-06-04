@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #1e2030;
+  color: #c0caf5;
+  font-family: system-ui, -apple-system, sans-serif;
+  height: 92px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ── Tab bar (top 36px) ───────────────────────────────── */
+#tabbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 6px 8px 0;
+  height: 36px;
+  background: #16181f;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px 0 12px;
+  height: 28px;
+  background: #2a2d3e;
+  border-radius: 7px 7px 0 0;
+  cursor: pointer;
+  font-size: 12px;
+  max-width: 160px;
+  min-width: 80px;
+  color: #7982a9;
+  border: 1px solid #414868;
+  border-bottom: none;
+  transition: background .12s;
+  flex-shrink: 0;
+}
+.tab:hover   { background: #383c58; color: #c0caf5; }
+.tab.active  { background: #1e2030; color: #c0caf5; border-color: #545c7e; }
+
+.tab-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-close {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 0 0 2px;
+  line-height: 1;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.tab-close:hover { opacity: 1; color: #f7768e; }
+
+#btn-new-tab {
+  background: none;
+  border: none;
+  color: #565f89;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 6px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+#btn-new-tab:hover { color: #c0caf5; background: #2a2d3e; }
+
+/* ── Toolbar row (bottom 56px) ────────────────────────── */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+button.bb {
+  background: #2a2d3e;
+  color: #c0caf5;
+  border: 1px solid #414868;
+  border-radius: 7px;
+  padding: 0 10px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 15px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+button.bb:hover  { background: #414868; }
+button.bb:active { background: #545c7e; }
+
+#url {
+  flex: 1;
+  background: #2a2d3e;
+  color: #c0caf5;
+  border: 1px solid #414868;
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 32px;
+  font-size: 13px;
+  outline: none;
+}
+#url:focus   { border-color: #7aa2f7; box-shadow: 0 0 0 2px rgba(122,162,247,.15); }
+#url::placeholder { color: #565f89; }
+
+#mode {
+  background: #2a2d3e;
+  color: #c0caf5;
+  border: 1px solid #414868;
+  border-radius: 7px;
+  padding: 0 8px;
+  height: 32px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#ram { font-size: 11px; min-width: 58px; text-align: right; color: #565f89; }
+#ram.alert { color: #f7768e; }
+
+/* ── Agent result panel ───────────────────────────────── */
+#agent-panel {
+  display: none;
+  position: fixed;
+  bottom: 0; right: 0;
+  width: 380px;
+  max-height: 260px;
+  background: #1a1c2a;
+  border: 1px solid #414868;
+  border-radius: 10px 0 0 0;
+  padding: 12px;
+  font-size: 13px;
+  color: #c0caf5;
+  overflow-y: auto;
+  z-index: 9999;
+  box-shadow: -4px -4px 20px rgba(0,0,0,.4);
+}
+#agent-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #7aa2f7;
+}
+#agent-close { cursor: pointer; color: #565f89; }
+#agent-close:hover { color: #c0caf5; }
+#agent-text  { white-space: pre-wrap; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- Tab bar -->
+<div id="tabbar">
+  <!-- Tabs injected by updateTabs() -->
+  <button id="btn-new-tab" title="New Tab (Ctrl+T)" onclick="send('newTab')">＋</button>
+</div>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <button class="bb" title="Back (Alt+←)"    onclick="send('back')">←</button>
+  <button class="bb" title="Forward (Alt+→)" onclick="send('forward')">→</button>
+  <button class="bb" title="Reload (F5)"     onclick="send('reload')">↺</button>
+
+  <input id="url" type="text" placeholder="Enter URL or search…"
+         onkeydown="if(event.key==='Enter')navigate()"
+         onfocus="this.select()" />
+
+  <select id="mode" title="Page mode" onchange="send('setMode',{mode:this.value})">
+    <option value="lite">🌿 Lite</option>
+    <option value="normal" selected>⚡ Normal</option>
+    <option value="full">🔥 Full</option>
+  </select>
+
+  <button class="bb" title="Reader Mode"            onclick="send('readerMode')">📖</button>
+  <button class="bb" id="btn-agent" style="font-size:12px;min-width:88px"
+          title="Summarize with Bauer Agent"
+          onclick="agentClick()">🤖 Resumir</button>
+
+  <span id="ram">-- MB</span>
+</div>
+
+<!-- Agent result -->
+<div id="agent-panel">
+  <div id="agent-header">
+    🤖 Bauer Agent — Resumo
+    <span id="agent-close" onclick="document.getElementById('agent-panel').style.display='none'">✕</span>
+  </div>
+  <div id="agent-text"></div>
+</div>
+
+<script>
+// ── IPC ─────────────────────────────────────────────────────────────────
+function send(action, extra) {
+  var msg = Object.assign({ action: action }, extra || {});
+  try { window.ipc.postMessage(JSON.stringify(msg)); } catch(e) {}
+}
+
+function navigate() {
+  var v = document.getElementById('url').value.trim();
+  if (v) send('navigate', { url: v });
+}
+
+function agentClick() {
+  var b = document.getElementById('btn-agent');
+  b.textContent = '⏳…'; b.disabled = true;
+  send('agentSummarize');
+}
+
+// ── Called from Rust ─────────────────────────────────────────────────────
+
+// Update URL bar when active tab navigates
+function setUrlBar(url) {
+  document.getElementById('url').value = url;
+}
+
+// Update RAM display
+function setRam(mb, alert) {
+  var el = document.getElementById('ram');
+  el.textContent = mb.toFixed(0) + ' MB';
+  el.className = alert ? 'alert' : '';
+}
+
+// Update mode dropdown (when switching tabs)
+function setMode(mode) {
+  document.getElementById('mode').value = mode;
+}
+
+// Show agent result panel
+function showAgent(text) {
+  document.getElementById('agent-text').textContent = text;
+  document.getElementById('agent-panel').style.display = 'block';
+  var b = document.getElementById('btn-agent');
+  b.textContent = '🤖 Resumir'; b.disabled = false;
+}
+
+// Rebuild tab bar — called from Rust on any tab change
+function updateTabs(tabs, activeIndex) {
+  var bar = document.getElementById('tabbar');
+  // Remove old tab elements (keep the + button)
+  bar.querySelectorAll('.tab').forEach(function(t) { t.remove(); });
+
+  tabs.forEach(function(tab, i) {
+    var div = document.createElement('div');
+    div.className = 'tab' + (i === activeIndex ? ' active' : '');
+    div.onclick = function() { send('switchTab', { index: i }); };
+
+    var title = document.createElement('span');
+    title.className = 'tab-title';
+    title.textContent = tab.title || tab.url || 'New Tab';
+    div.appendChild(title);
+
+    var close = document.createElement('button');
+    close.className = 'tab-close';
+    close.textContent = '×';
+    close.title = 'Close tab';
+    close.onclick = function(e) { e.stopPropagation(); send('closeTab', { index: i }); };
+    div.appendChild(close);
+
+    bar.insertBefore(div, document.getElementById('btn-new-tab'));
+  });
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if (e.altKey  && e.key === 'ArrowLeft')  { send('back');    e.preventDefault(); }
+  if (e.altKey  && e.key === 'ArrowRight') { send('forward'); e.preventDefault(); }
+  if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) { send('reload'); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 'l') { document.getElementById('url').focus(); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 't') { send('newTab'); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 'w') { send('closeTab', { index: -1 }); e.preventDefault(); }
+});
+</script>
+</body>
+</html>

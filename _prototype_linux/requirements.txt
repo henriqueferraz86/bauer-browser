@@ -1,0 +1,5 @@
+# Bauer Browser — Python dependencies
+# PyGObject is installed via the system package manager (see README).
+# Only pure-Python extras listed here.
+
+tomli>=2.0.0; python_version < "3.11"
