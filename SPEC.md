@@ -239,6 +239,16 @@ enabled = true
 
 ---
 
+## 11e. F-06 — Ciclar Abas com Teclado
+
+| # | Spec | Status |
+|---|------|--------|
+| F-06.1 | Ctrl+Tab avança para a próxima aba (com wrap-around) | `[x]` |
+| F-06.2 | Ctrl+Shift+Tab volta para a aba anterior (com wrap-around) | `[x]` |
+| F-06.3 | Funciona com qualquer quantidade de abas abertas | `[x]` |
+
+---
+
 ## 11d. F-04 — Downloads
 
 | # | Spec | Status |
@@ -275,10 +285,7 @@ Janela funcional, URL bar, modos, bloqueio de navegação top-level, RAM visíve
 
 ### Fase 1 — Estabilização (pós-MVP)
 - **F-01** Favicon nas labels das abas
-- **F-03** Favoritos (salvar / listar / abrir)
-- **F-04** Download de arquivos
 - **F-05** Ícone personalizado do aplicativo
-- **F-06** Ctrl+Tab / Ctrl+Shift+Tab para ciclar abas
 - **F-07** Listas separadas para trackers vs. ads (conectar ao bug B-04)
 
 ### Fase 2 — Corporativo / BauerOS

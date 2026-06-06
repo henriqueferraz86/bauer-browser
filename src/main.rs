@@ -67,6 +67,8 @@ enum Cmd {
     RemoveBookmark  { url: String },
     ShowBookmarks,
     NewTab,
+    NextTab,
+    PrevTab,
     SwitchTab       { index: usize },
     CloseTab        { index: usize },
 }
@@ -439,6 +441,56 @@ fn main() -> wry::Result<()> {
                             url:window.location.href\
                         }));}catch(_){}"
                     );
+                }
+
+                Cmd::NextTab => {
+                    if open_count > 1 {
+                        active_tab = (active_tab + 1) % open_count;
+                        cur_mode = tab_metas[active_tab].mode.clone();
+                        apply_tab_bounds(&content_views, active_tab, cur_w, cur_h);
+                        sync_tabs(&chrome, &tab_metas, open_count, active_tab, max_tabs);
+                        let url = tab_metas[active_tab].url.clone();
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setUrlBar==='function')setUrlBar('{}')", js_escape(&url)
+                        ));
+                        let is_bm = bm_list.iter().any(|b| b.url == url);
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
+                        ));
+                        let rm = tab_metas[active_tab].reader_mode;
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setReaderMode==='function')setReaderMode({})", rm
+                        ));
+                        let title = tab_metas[active_tab].title.clone();
+                        window.set_title(&format!("{} — Bauer Browser",
+                            if title.is_empty() { url } else { title }
+                        ));
+                    }
+                }
+
+                Cmd::PrevTab => {
+                    if open_count > 1 {
+                        active_tab = if active_tab == 0 { open_count - 1 } else { active_tab - 1 };
+                        cur_mode = tab_metas[active_tab].mode.clone();
+                        apply_tab_bounds(&content_views, active_tab, cur_w, cur_h);
+                        sync_tabs(&chrome, &tab_metas, open_count, active_tab, max_tabs);
+                        let url = tab_metas[active_tab].url.clone();
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setUrlBar==='function')setUrlBar('{}')", js_escape(&url)
+                        ));
+                        let is_bm = bm_list.iter().any(|b| b.url == url);
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setBookmarkState==='function')setBookmarkState({})", is_bm
+                        ));
+                        let rm = tab_metas[active_tab].reader_mode;
+                        let _ = chrome.evaluate_script(&format!(
+                            "if(typeof setReaderMode==='function')setReaderMode({})", rm
+                        ));
+                        let title = tab_metas[active_tab].title.clone();
+                        window.set_title(&format!("{} — Bauer Browser",
+                            if title.is_empty() { url } else { title }
+                        ));
+                    }
                 }
 
                 Cmd::NewTab => {
