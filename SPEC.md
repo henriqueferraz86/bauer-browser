@@ -277,12 +277,16 @@ Adota as formas do Microsoft Edge mantendo as cores Tokyo Night já existentes.
 | F-08.6 | Botões de ação (reader/bookmark/list/agent) borderless com hover suave | `[x]` |
 | F-08.7 | Foco na barra: borda accent + glow azul | `[x]` |
 
-### Fase B — Abas verticais (toggle) — `[ ]`
+### Fase B — Abas verticais (toggle)
 | # | Spec | Status |
 |---|------|--------|
-| F-08.8 | Toggle alterna entre abas horizontais (topo) e verticais (lateral esquerda) | `[ ]` |
-| F-08.9 | Em modo vertical, conteúdo desloca à direita do tab strip | `[ ]` |
-| F-08.10 | Toolbar permanece no topo full width em ambos os modos | `[ ]` |
+| F-08.8 | Toggle (botão ▥/▤) alterna entre abas horizontais (topo) e verticais (lateral esquerda) | `[x]` |
+| F-08.9 | Em modo vertical, conteúdo desloca à direita do tab strip (240px) | `[x]` |
+| F-08.10 | Toolbar permanece no topo full width em ambos os modos | `[x]` |
+
+> Arquitetura: chrome dividido em 2 WebViews — `toolbar.html` (topo, full width) e
+> `tabs.html` (tab strip que vira coluna lateral no modo vertical). Layout calculado
+> por `toolbar_rect`/`tabs_rect`/`content_rect` conforme `TabLayout`.
 
 ### Fase C — Sidebar direita (Collections) — `[ ]`
 | # | Spec | Status |

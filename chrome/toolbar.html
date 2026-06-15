@@ -5,9 +5,7 @@
 <style>
 :root {
   --bg:          #1e2030;
-  --tabbar-bg:   #16181f;
   --surface:     #2a2d3e;
-  --surface-2:   #383c58;
   --text:        #c0caf5;
   --text-muted:  #7982a9;
   --accent:      #7aa2f7;
@@ -18,108 +16,23 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html, body { height: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  height: 92px;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
   user-select: none;
 }
 
-/* ── Tab strip (Edge-style floating tabs) ─────────────── */
-#tabbar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 8px 0;
-  height: 40px;
-  background: var(--tabbar-bg);
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 8px 0 12px;
-  height: 32px;
-  background: transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 12px;
-  max-width: 200px;
-  min-width: 90px;
-  color: var(--text-muted);
-  transition: background .12s, color .12s;
-  flex-shrink: 1;
-  position: relative;
-}
-.tab:hover            { background: var(--hover); color: var(--text); }
-.tab.active           { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.35); }
-.tab.active::after {
-  content: ""; position: absolute; left: 8px; right: 8px; bottom: -6px; height: 0;
-}
-
-.tab-favicon {
-  width: 14px; height: 14px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; opacity: .85;
-}
-
-.tab-title {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tab-close {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 14px;
-  width: 18px; height: 18px;
-  line-height: 1;
-  border-radius: 50%;
-  opacity: 0.55;
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  transition: background .1s, opacity .1s;
-}
-.tab-close:hover { opacity: 1; background: var(--hover-strong); color: var(--danger); }
-
-#btn-new-tab {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 17px;
-  cursor: pointer;
-  width: 30px; height: 30px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  margin-left: 2px;
-  transition: background .12s, color .12s;
-}
-#btn-new-tab:hover:not(:disabled) { color: var(--text); background: var(--hover); }
-#btn-new-tab:disabled { opacity: 0.25; cursor: not-allowed; }
-
-/* ── Toolbar ──────────────────────────────────────────── */
 #toolbar {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 0 8px;
-  height: 52px;
-  flex-shrink: 0;
+  height: 100%;
 }
 
-/* Circular icon buttons (nav + actions) */
 button.icon {
   background: transparent;
   color: var(--text);
@@ -137,11 +50,9 @@ button.icon {
 }
 button.icon:hover  { background: var(--hover); }
 button.icon:active { background: var(--hover-strong); }
-button.icon:disabled { opacity: 0.3; cursor: default; background: transparent; }
 
 .tb-gap { width: 4px; flex-shrink: 0; }
 
-/* Address pill */
 #url-wrap {
   flex: 1;
   display: flex;
@@ -172,7 +83,6 @@ button.icon:disabled { opacity: 0.3; cursor: default; background: transparent; }
 }
 #url::placeholder { color: var(--text-muted); }
 
-/* Mode selector */
 #mode {
   background: transparent;
   color: var(--text);
@@ -196,11 +106,10 @@ button.icon:disabled { opacity: 0.3; cursor: default; background: transparent; }
 }
 #ram.alert { color: var(--danger); }
 
-/* Active states */
-#btn-reader.active   { background: rgba(122,162,247,.22); color: var(--accent); }
+#btn-reader.active      { background: rgba(122,162,247,.22); color: var(--accent); }
 #btn-bookmark.bookmarked { color: #e0af68; }
+#btn-layout.active      { background: rgba(122,162,247,.22); color: var(--accent); }
 
-/* Agent pill button keeps a label */
 #btn-agent {
   width: auto;
   border-radius: 17px;
@@ -260,14 +169,8 @@ button.icon:disabled { opacity: 0.3; cursor: default; background: transparent; }
 </head>
 <body>
 
-<!-- Tab strip -->
-<div id="tabbar">
-  <!-- Tabs injected by updateTabs() -->
-  <button id="btn-new-tab" title="New Tab (Ctrl+T)" onclick="newTabClick()">＋</button>
-</div>
-
-<!-- Toolbar -->
 <div id="toolbar">
+  <button class="icon" id="btn-layout" title="Abas verticais" onclick="send('toggleTabLayout')">▥</button>
   <button class="icon" title="Back (Alt+←)"    onclick="send('back')">←</button>
   <button class="icon" title="Forward (Alt+→)" onclick="send('forward')">→</button>
   <button class="icon" title="Reload (F5)"     onclick="send('reload')">↺</button>
@@ -297,10 +200,8 @@ button.icon:disabled { opacity: 0.3; cursor: default; background: transparent; }
   <span id="ram">-- MB</span>
 </div>
 
-<!-- Download toast -->
 <div id="dl-toast"></div>
 
-<!-- Agent result -->
 <div id="agent-panel">
   <div id="agent-header">
     🤖 Bauer Agent — Resumo
@@ -310,7 +211,6 @@ button.icon:disabled { opacity: 0.3; cursor: default; background: transparent; }
 </div>
 
 <script>
-// ── IPC ─────────────────────────────────────────────────────────────────
 function send(action, extra) {
   var msg = Object.assign({ action: action }, extra || {});
   try { window.ipc.postMessage(JSON.stringify(msg)); } catch(e) {}
@@ -321,17 +221,11 @@ function navigate() {
   if (v) send('navigate', { url: v });
 }
 
-function newTabClick() {
-  if (!document.getElementById('btn-new-tab').disabled) send('newTab');
-}
-
 function agentClick() {
   var b = document.getElementById('btn-agent');
   b.textContent = '⏳…'; b.disabled = true;
   send('agentSummarize');
 }
-
-// ── Reader Mode toggle ────────────────────────────────────────────────────
 
 function setReaderMode(isActive) {
   var btn = document.getElementById('btn-reader');
@@ -339,10 +233,16 @@ function setReaderMode(isActive) {
   btn.title = isActive ? 'Exit Reader Mode' : 'Reader Mode';
 }
 
-// ── Downloads (F-04) ─────────────────────────────────────────────────────
+// Toggle button reflects current layout (called from Rust)
+function setTabLayout(mode) {
+  var btn = document.getElementById('btn-layout');
+  var vertical = mode === 'vertical';
+  btn.textContent = vertical ? '▤' : '▥';
+  btn.title = vertical ? 'Abas horizontais' : 'Abas verticais';
+  btn.classList.toggle('active', vertical);
+}
 
 var _dlTimer = null;
-
 function showDownload(filename, status) {
   var el = document.getElementById('dl-toast');
   el.className = '';
@@ -363,10 +263,7 @@ function showDownload(filename, status) {
   }
 }
 
-// ── Bookmarks (F-03) ─────────────────────────────────────────────────────
-
 var _bookmarked = false;
-
 function bookmarkClick() {
   if (_bookmarked) {
     send('removeBookmark', { url: document.getElementById('url').value });
@@ -374,8 +271,6 @@ function bookmarkClick() {
     send('saveBookmark');
   }
 }
-
-// Called from Rust — update ☆/★ state of the bookmark button
 function setBookmarkState(isBookmarked) {
   _bookmarked = isBookmarked;
   var btn = document.getElementById('btn-bookmark');
@@ -384,9 +279,6 @@ function setBookmarkState(isBookmarked) {
   btn.classList.toggle('bookmarked', isBookmarked);
 }
 
-// ── Called from Rust ─────────────────────────────────────────────────────
-
-// Populate datalist with history URLs on startup (F-02)
 function setHistory(urls) {
   var dl = document.getElementById('url-history');
   dl.innerHTML = '';
@@ -396,8 +288,6 @@ function setHistory(urls) {
     dl.appendChild(opt);
   });
 }
-
-// Prepend a new URL to the datalist after navigation (F-02)
 function addToHistory(url) {
   var dl = document.getElementById('url-history');
   var existing = Array.from(dl.options).find(function(o) { return o.value === url; });
@@ -407,9 +297,7 @@ function addToHistory(url) {
   dl.insertBefore(opt, dl.firstChild);
 }
 
-function setUrlBar(url) {
-  document.getElementById('url').value = url;
-}
+function setUrlBar(url) { document.getElementById('url').value = url; }
 
 function setRam(mb, alert) {
   var el = document.getElementById('ram');
@@ -417,9 +305,7 @@ function setRam(mb, alert) {
   el.className = alert ? 'alert' : '';
 }
 
-function setMode(mode) {
-  document.getElementById('mode').value = mode;
-}
+function setMode(mode) { document.getElementById('mode').value = mode; }
 
 function showAgent(text) {
   document.getElementById('agent-text').textContent = text;
@@ -428,54 +314,13 @@ function showAgent(text) {
   b.textContent = '🤖 Resumir'; b.disabled = false;
 }
 
-// Rebuild tab bar; maxTabs enables/disables the + button (spec 3.11)
-function updateTabs(tabs, activeIndex, maxTabs) {
-  var bar = document.getElementById('tabbar');
-  bar.querySelectorAll('.tab').forEach(function(t) { t.remove(); });
-
-  tabs.forEach(function(tab, i) {
-    var div = document.createElement('div');
-    div.className = 'tab' + (i === activeIndex ? ' active' : '');
-    div.onclick = function() { send('switchTab', { index: i }); };
-
-    var fav = document.createElement('span');
-    fav.className = 'tab-favicon';
-    fav.textContent = '🌐';
-    div.appendChild(fav);
-
-    var title = document.createElement('span');
-    title.className = 'tab-title';
-    title.textContent = tab.title || tab.url || 'New Tab';
-    div.appendChild(title);
-
-    var close = document.createElement('button');
-    close.className = 'tab-close';
-    close.textContent = '×';
-    close.title = 'Close tab';
-    close.onclick = function(e) { e.stopPropagation(); send('closeTab', { index: i }); };
-    div.appendChild(close);
-
-    bar.insertBefore(div, document.getElementById('btn-new-tab'));
-  });
-
-  // 3.11: visually disable + when at the limit
-  var btn = document.getElementById('btn-new-tab');
-  var atLimit = maxTabs !== undefined && tabs.length >= maxTabs;
-  btn.disabled = atLimit;
-  btn.title = atLimit ? 'Maximum tabs reached (' + maxTabs + ')' : 'New Tab (Ctrl+T)';
-}
-
-// ── Keyboard shortcuts ────────────────────────────────────────────────────
+// Keyboard shortcuts (fire when the toolbar WebView has focus)
 document.addEventListener('keydown', function(e) {
   if (e.altKey  && e.key === 'ArrowLeft')  { send('back');    e.preventDefault(); }
   if (e.altKey  && e.key === 'ArrowRight') { send('forward'); e.preventDefault(); }
   if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) { send('reload'); e.preventDefault(); }
   if (e.ctrlKey && e.key === 'l') { document.getElementById('url').focus(); e.preventDefault(); }
-  if (e.ctrlKey && e.key === 't') {
-    if (!document.getElementById('btn-new-tab').disabled) {
-      send('newTab'); e.preventDefault();
-    }
-  }
+  if (e.ctrlKey && e.key === 't') { send('newTab'); e.preventDefault(); }
   if (e.ctrlKey && e.key === 'w') { send('closeTab', { index: -1 }); e.preventDefault(); }
   if (e.ctrlKey && e.key === 'd') { bookmarkClick(); e.preventDefault(); }
   if (e.ctrlKey && e.key === 'Tab') {
