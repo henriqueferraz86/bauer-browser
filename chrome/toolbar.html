@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+:root {
+  --bg:          #1e2030;
+  --surface:     #2a2d3e;
+  --text:        #c0caf5;
+  --text-muted:  #7982a9;
+  --accent:      #7aa2f7;
+  --hover:       rgba(192,202,245,0.09);
+  --hover-strong:rgba(192,202,245,0.15);
+  --danger:      #f7768e;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  height: 100%;
+}
+
+button.icon {
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background .12s;
+}
+button.icon:hover  { background: var(--hover); }
+button.icon:active { background: var(--hover-strong); }
+
+.tb-gap { width: 4px; flex-shrink: 0; }
+
+#url-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: 18px;
+  height: 36px;
+  padding: 0 14px;
+  margin: 0 6px;
+  transition: border-color .12s, box-shadow .12s, background .12s;
+}
+#url-wrap:focus-within {
+  background: #20232f;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(122,162,247,.18);
+}
+#url-lead { font-size: 13px; color: var(--text-muted); flex-shrink: 0; }
+#url {
+  flex: 1;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  height: 100%;
+  font-size: 13px;
+  outline: none;
+}
+#url::placeholder { color: var(--text-muted); }
+
+#mode {
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 16px;
+  padding: 0 6px;
+  height: 32px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .12s;
+}
+#mode:hover { background: var(--hover); }
+
+#ram {
+  font-size: 11px;
+  min-width: 56px;
+  text-align: right;
+  color: var(--text-muted);
+  padding-left: 4px;
+  flex-shrink: 0;
+}
+#ram.alert { color: var(--danger); }
+
+#btn-reader.active      { background: rgba(122,162,247,.22); color: var(--accent); }
+#btn-bookmark.bookmarked { color: #e0af68; }
+#btn-layout.active      { background: rgba(122,162,247,.22); color: var(--accent); }
+
+#btn-agent {
+  width: auto;
+  border-radius: 17px;
+  padding: 0 12px;
+  font-size: 12px;
+  gap: 4px;
+}
+
+/* ── Download toast ───────────────────────────────────── */
+#dl-toast {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0;
+  padding: 6px 14px;
+  background: #1a1c2a;
+  border: 1px solid #414868;
+  border-radius: 0 8px 0 0;
+  font-size: 12px;
+  color: var(--text);
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 9997;
+}
+#dl-toast.done  { border-color: #9ece6a; color: #9ece6a; }
+#dl-toast.error { border-color: var(--danger); color: var(--danger); }
+
+/* ── Agent result panel ───────────────────────────────── */
+#agent-panel {
+  display: none;
+  position: fixed;
+  bottom: 0; right: 0;
+  width: 380px;
+  max-height: 260px;
+  background: #1a1c2a;
+  border: 1px solid #414868;
+  border-radius: 10px 0 0 0;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text);
+  overflow-y: auto;
+  z-index: 9999;
+  box-shadow: -4px -4px 20px rgba(0,0,0,.4);
+}
+#agent-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--accent);
+}
+#agent-close { cursor: pointer; color: var(--text-muted); }
+#agent-close:hover { color: var(--text); }
+#agent-text  { white-space: pre-wrap; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button class="icon" id="btn-layout" title="Abas verticais" onclick="send('toggleTabLayout')">▥</button>
+  <button class="icon" title="Back (Alt+←)"    onclick="send('back')">←</button>
+  <button class="icon" title="Forward (Alt+→)" onclick="send('forward')">→</button>
+  <button class="icon" title="Reload (F5)"     onclick="send('reload')">↺</button>
+  <button class="icon" title="Home"            onclick="send('home')">🏠</button>
+
+  <div id="url-wrap">
+    <span id="url-lead">🔍</span>
+    <input id="url" type="text" list="url-history" placeholder="Pesquisar ou digitar endereço"
+           onkeydown="if(event.key==='Enter')navigate()"
+           onfocus="this.select()" />
+    <datalist id="url-history"></datalist>
+  </div>
+
+  <select id="mode" title="Page mode" onchange="send('setMode',{mode:this.value})">
+    <option value="lite">🌿 Lite</option>
+    <option value="normal" selected>⚡ Normal</option>
+    <option value="full">🔥 Full</option>
+  </select>
+
+  <span class="tb-gap"></span>
+
+  <button class="icon" id="btn-reader"   title="Reader Mode"             onclick="send('readerMode')">📖</button>
+  <button class="icon" id="btn-bookmark" title="Add to bookmarks (Ctrl+D)" onclick="bookmarkClick()">☆</button>
+  <button class="icon" id="btn-bookmark-list" title="Show bookmarks"     onclick="send('showBookmarks')">≡</button>
+  <button class="icon" id="btn-agent"    title="Summarize with Bauer Agent" onclick="agentClick()">🤖 Resumir</button>
+
+  <span id="ram">-- MB</span>
+</div>
+
+<div id="dl-toast"></div>
+
+<div id="agent-panel">
+  <div id="agent-header">
+    🤖 Bauer Agent — Resumo
+    <span id="agent-close" onclick="document.getElementById('agent-panel').style.display='none'">✕</span>
+  </div>
+  <div id="agent-text"></div>
+</div>
+
+<script>
+function send(action, extra) {
+  var msg = Object.assign({ action: action }, extra || {});
+  try { window.ipc.postMessage(JSON.stringify(msg)); } catch(e) {}
+}
+
+function navigate() {
+  var v = document.getElementById('url').value.trim();
+  if (v) send('navigate', { url: v });
+}
+
+function agentClick() {
+  var b = document.getElementById('btn-agent');
+  b.textContent = '⏳…'; b.disabled = true;
+  send('agentSummarize');
+}
+
+function setReaderMode(isActive) {
+  var btn = document.getElementById('btn-reader');
+  btn.classList.toggle('active', isActive);
+  btn.title = isActive ? 'Exit Reader Mode' : 'Reader Mode';
+}
+
+// Toggle button reflects current layout (called from Rust)
+function setTabLayout(mode) {
+  var btn = document.getElementById('btn-layout');
+  var vertical = mode === 'vertical';
+  btn.textContent = vertical ? '▤' : '▥';
+  btn.title = vertical ? 'Abas horizontais' : 'Abas verticais';
+  btn.classList.toggle('active', vertical);
+}
+
+var _dlTimer = null;
+function showDownload(filename, status) {
+  var el = document.getElementById('dl-toast');
+  el.className = '';
+  clearTimeout(_dlTimer);
+  if (status === 'started') {
+    el.textContent = '⬇ ' + filename;
+    el.style.display = 'block';
+  } else if (status === 'done') {
+    el.textContent = '✓ ' + filename;
+    el.className = 'done';
+    el.style.display = 'block';
+    _dlTimer = setTimeout(function() { el.style.display = 'none'; }, 4000);
+  } else {
+    el.textContent = '✗ ' + filename;
+    el.className = 'error';
+    el.style.display = 'block';
+    _dlTimer = setTimeout(function() { el.style.display = 'none'; }, 4000);
+  }
+}
+
+var _bookmarked = false;
+function bookmarkClick() {
+  if (_bookmarked) {
+    send('removeBookmark', { url: document.getElementById('url').value });
+  } else {
+    send('saveBookmark');
+  }
+}
+function setBookmarkState(isBookmarked) {
+  _bookmarked = isBookmarked;
+  var btn = document.getElementById('btn-bookmark');
+  btn.textContent = isBookmarked ? '★' : '☆';
+  btn.title = isBookmarked ? 'Remove from bookmarks (Ctrl+D)' : 'Add to bookmarks (Ctrl+D)';
+  btn.classList.toggle('bookmarked', isBookmarked);
+}
+
+function setHistory(urls) {
+  var dl = document.getElementById('url-history');
+  dl.innerHTML = '';
+  urls.forEach(function(url) {
+    var opt = document.createElement('option');
+    opt.value = url;
+    dl.appendChild(opt);
+  });
+}
+function addToHistory(url) {
+  var dl = document.getElementById('url-history');
+  var existing = Array.from(dl.options).find(function(o) { return o.value === url; });
+  if (existing) { dl.removeChild(existing); }
+  var opt = document.createElement('option');
+  opt.value = url;
+  dl.insertBefore(opt, dl.firstChild);
+}
+
+function setUrlBar(url) { document.getElementById('url').value = url; }
+
+function setRam(mb, alert) {
+  var el = document.getElementById('ram');
+  el.textContent = mb.toFixed(0) + ' MB';
+  el.className = alert ? 'alert' : '';
+}
+
+function setMode(mode) { document.getElementById('mode').value = mode; }
+
+function showAgent(text) {
+  document.getElementById('agent-text').textContent = text;
+  document.getElementById('agent-panel').style.display = 'block';
+  var b = document.getElementById('btn-agent');
+  b.textContent = '🤖 Resumir'; b.disabled = false;
+}
+
+// Keyboard shortcuts (fire when the toolbar WebView has focus)
+document.addEventListener('keydown', function(e) {
+  if (e.altKey  && e.key === 'ArrowLeft')  { send('back');    e.preventDefault(); }
+  if (e.altKey  && e.key === 'ArrowRight') { send('forward'); e.preventDefault(); }
+  if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) { send('reload'); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 'l') { document.getElementById('url').focus(); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 't') { send('newTab'); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 'w') { send('closeTab', { index: -1 }); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 'd') { bookmarkClick(); e.preventDefault(); }
+  if (e.ctrlKey && e.key === 'Tab') {
+    e.shiftKey ? send('prevTab') : send('nextTab');
+    e.preventDefault();
+  }
+});
+</script>
+</body>
+</html>

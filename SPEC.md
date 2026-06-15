@@ -239,6 +239,16 @@ enabled = true
 
 ---
 
+## 11e. F-06 — Ciclar Abas com Teclado
+
+| # | Spec | Status |
+|---|------|--------|
+| F-06.1 | Ctrl+Tab avança para a próxima aba (com wrap-around) | `[x]` |
+| F-06.2 | Ctrl+Shift+Tab volta para a aba anterior (com wrap-around) | `[x]` |
+| F-06.3 | Funciona com qualquer quantidade de abas abertas | `[x]` |
+
+---
+
 ## 11d. F-04 — Downloads
 
 | # | Spec | Status |
@@ -249,6 +259,45 @@ enabled = true
 | F-04.4 | Toast atualiza para `✓ filename` ao completar ou `✗ filename` se falhar | `[x]` |
 | F-04.5 | Toast desaparece automaticamente 4 s após o término | `[x]` |
 | F-04.6 | Múltiplos downloads simultâneos suportados | `[x]` |
+
+---
+
+## 11f. F-08 — Redesign visual estilo Edge (paleta Tokyo Night)
+
+Adota as formas do Microsoft Edge mantendo as cores Tokyo Night já existentes.
+
+### Fase A — Restyle horizontal
+| # | Spec | Status |
+|---|------|--------|
+| F-08.1 | Abas com cantos arredondados (8px) estilo "floating" do Edge; ativa elevada | `[x]` |
+| F-08.2 | Abas exibem favicon placeholder (🌐) à esquerda do título | `[x]` |
+| F-08.3 | Botões de navegação (← → ↺ 🏠) circulares, borderless, hover circular | `[x]` |
+| F-08.4 | Botão Home (🏠) navega para `home_url` (Cmd::Home) | `[x]` |
+| F-08.5 | Barra de endereço em pill arredondada (radius 18px) com ícone 🔍 leading | `[x]` |
+| F-08.6 | Botões de ação (reader/bookmark/list/agent) borderless com hover suave | `[x]` |
+| F-08.7 | Foco na barra: borda accent + glow azul | `[x]` |
+
+### Fase B — Abas verticais (toggle)
+| # | Spec | Status |
+|---|------|--------|
+| F-08.8 | Toggle (botão ▥/▤) alterna entre abas horizontais (topo) e verticais (lateral esquerda) | `[x]` |
+| F-08.9 | Em modo vertical, conteúdo desloca à direita do tab strip (240px) | `[x]` |
+| F-08.10 | Toolbar permanece no topo full width em ambos os modos | `[x]` |
+
+> Arquitetura: chrome dividido em 2 WebViews — `toolbar.html` (topo, full width) e
+> `tabs.html` (tab strip que vira coluna lateral no modo vertical). Layout calculado
+> por `toolbar_rect`/`tabs_rect`/`content_rect` conforme `TabLayout`.
+
+### Fase C — Sidebar direita (Collections)
+| # | Spec | Status |
+|---|------|--------|
+| F-08.11 | Rail de ícones (44px) na borda direita: ☆ favoritos, 🕘 histórico, 🤖 agente | `[x]` |
+| F-08.12 | Clicar num ícone abre o painel correspondente (injetado no content WebView) | `[x]` |
+| F-08.13 | Rail presente em ambos os modos (horizontal e vertical); conteúdo reserva 44px à direita | `[x]` |
+
+> Arquitetura: 3º WebView (`rail.html`) na borda direita. Favoritos e histórico
+> renderizam no content via `document.write` (`generate_bookmarks_html` /
+> `generate_history_html`). Histórico usa `history::load_entries(200)`.
 
 ---
 
@@ -275,10 +324,7 @@ Janela funcional, URL bar, modos, bloqueio de navegação top-level, RAM visíve
 
 ### Fase 1 — Estabilização (pós-MVP)
 - **F-01** Favicon nas labels das abas
-- **F-03** Favoritos (salvar / listar / abrir)
-- **F-04** Download de arquivos
 - **F-05** Ícone personalizado do aplicativo
-- **F-06** Ctrl+Tab / Ctrl+Shift+Tab para ciclar abas
 - **F-07** Listas separadas para trackers vs. ads (conectar ao bug B-04)
 
 ### Fase 2 — Corporativo / BauerOS

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+:root {
+  --rail-bg:     #16181f;
+  --text:        #c0caf5;
+  --text-muted:  #7982a9;
+  --hover:       rgba(192,202,245,0.10);
+  --hover-strong:rgba(192,202,245,0.16);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--rail-bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  overflow: hidden;
+  user-select: none;
+  border-left: 1px solid #2a2d3e;
+}
+#rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  height: 100%;
+}
+.rail-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s, color .12s;
+}
+.rail-btn:hover  { background: var(--hover); color: var(--text); }
+.rail-btn:active { background: var(--hover-strong); }
+</style>
+</head>
+<body>
+<div id="rail">
+  <button class="rail-btn" title="Favoritos"      onclick="send('showBookmarks')">☆</button>
+  <button class="rail-btn" title="Histórico"       onclick="send('showHistory')">🕘</button>
+  <button class="rail-btn" title="Resumir (Agent)" onclick="send('agentSummarize')">🤖</button>
+</div>
+<script>
+function send(action, extra) {
+  var msg = Object.assign({ action: action }, extra || {});
+  try { window.ipc.postMessage(JSON.stringify(msg)); } catch(e) {}
+}
+</script>
+</body>
+</html>
