@@ -20,7 +20,7 @@ DEFAULTS: dict = {
     'browser': {
         'max_tabs': 5,
         'default_mode': 'normal',
-        'home_url': 'https://duckduckgo.com',
+        'home_url': 'https://www.google.com',
         'ram_alert_mb': 300,
         'idle_tab_timeout_seconds': 0,
         'window_width': 1200,

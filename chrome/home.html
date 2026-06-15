@@ -128,7 +128,7 @@ function go(q) {
   var u;
   if (/^https?:\/\//i.test(q)) u = q;
   else if (q.indexOf(' ') < 0 && q.indexOf('.') > 0) u = 'https://' + q;
-  else u = 'https://duckduckgo.com/?q=' + encodeURIComponent(q);
+  else u = 'https://www.google.com/search?q=' + encodeURIComponent(q);
   location.href = u;
 }
 (function () {

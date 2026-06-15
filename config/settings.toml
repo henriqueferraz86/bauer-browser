@@ -4,7 +4,7 @@
 [browser]
 max_tabs     = 5
 default_mode = "normal"
-home_url     = "https://duckduckgo.com"
+home_url     = "https://www.google.com"
 ram_alert_mb = 300
 
 [blocklists]

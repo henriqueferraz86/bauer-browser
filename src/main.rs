@@ -159,10 +159,10 @@ impl TabMeta {
 
 fn normalize_url(url: &str) -> String {
     let url = url.trim();
-    if url.is_empty() { return "https://duckduckgo.com".into(); }
+    if url.is_empty() { return "https://www.google.com".into(); }
     if url.starts_with("http://") || url.starts_with("https://") { return url.into(); }
     if url.contains('.') && !url.contains(' ') { format!("https://{url}") }
-    else { format!("https://duckduckgo.com/?q={}", url.replace(' ', "+")) }
+    else { format!("https://www.google.com/search?q={}", url.replace(' ', "+")) }
 }
 
 fn js_escape(s: &str) -> String {

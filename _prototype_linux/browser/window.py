@@ -31,7 +31,7 @@ class BrowserWindow(Gtk.ApplicationWindow):
         self.tabs.on_url_changed = self._sync_url
         self.tabs.on_title_changed = self._sync_title
 
-        home = config.get('browser', 'home_url', 'https://duckduckgo.com')
+        home = config.get('browser', 'home_url', 'https://www.google.com')
         self.tabs.new_tab(home)
 
         GLib.timeout_add(5_000, self._refresh_agent_btn)
@@ -159,7 +159,7 @@ class BrowserWindow(Gtk.ApplicationWindow):
         if not self.tabs.can_open():
             self._alert(f'Máximo de {self.tabs.max_tabs} abas atingido.')
             return
-        home = self.config.get('browser', 'home_url', 'https://duckduckgo.com')
+        home = self.config.get('browser', 'home_url', 'https://www.google.com')
         self.tabs.new_tab(home)
 
     def _on_mode_changed(self, drop, _param):

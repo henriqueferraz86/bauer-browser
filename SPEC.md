@@ -44,8 +44,8 @@ O Bauer Browser é um navegador web leve, controlado e seguro, projetado para ro
 |---|------|--------|
 | 2.1 | Enter na URL bar navega para o endereço digitado | `[x]` |
 | 2.2 | Domínio sem prefixo (ex.: `github.com`) recebe `https://` | `[x]` |
-| 2.3 | Texto sem ponto vira busca no DuckDuckGo | `[x]` |
-| 2.4 | URL bar vazia navega para DuckDuckGo | `[x]` |
+| 2.3 | Texto sem ponto vira busca no Google | `[x]` |
+| 2.4 | URL bar vazia navega para Google | `[x]` |
 | 2.5 | Botão Voltar dispara `history.back()` | `[x]` |
 | 2.6 | Botão Avançar dispara `history.forward()` | `[x]` |
 | 2.7 | Botão Recarregar dispara `location.reload()` | `[x]` |
@@ -168,7 +168,7 @@ Defaults:
 [browser]
 max_tabs     = 5
 default_mode = "normal"
-home_url     = "https://duckduckgo.com"
+home_url     = "https://www.google.com"
 ram_alert_mb = 300.0
 
 [blocklists]

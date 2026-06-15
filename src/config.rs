@@ -21,7 +21,7 @@ impl Default for Config {
         Self {
             max_tabs:       5,
             default_mode:   "normal".into(),
-            home_url:       "https://duckduckgo.com".into(),
+            home_url:       "https://www.google.com".into(),
             ram_alert_mb:   300.0,
             block_trackers: true,
             block_ads:      true,

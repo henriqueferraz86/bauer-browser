@@ -77,7 +77,7 @@ Edit `config/settings.toml`:
 [browser]
 max_tabs     = 5
 default_mode = "normal"   # "lite" | "normal" | "full"
-home_url     = "https://duckduckgo.com"
+home_url     = "https://www.google.com"
 ram_alert_mb = 300        # MB threshold for RAM warning
 
 [blocklists]

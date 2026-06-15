@@ -4,7 +4,7 @@
 [browser]
 max_tabs                 = 5
 default_mode             = "normal"   # "lite" | "normal" | "full"
-home_url                 = "https://duckduckgo.com"
+home_url                 = "https://www.google.com"
 ram_alert_mb             = 300        # show warning label when tab exceeds this
 idle_tab_timeout_seconds = 0          # 0 = disabled (V2 feature)
 window_width             = 1200

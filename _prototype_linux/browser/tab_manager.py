@@ -75,7 +75,7 @@ class TabManager:
             lambda tid, ram: GLib.idle_add(self._on_ram, tid, ram),
         )
 
-        target = url or self.config.get('browser', 'home_url', 'https://duckduckgo.com')
+        target = url or self.config.get('browser', 'home_url', 'https://www.google.com')
         webview.load_uri(target)
         return tab_id
 
@@ -111,7 +111,7 @@ class TabManager:
             if '.' in url and ' ' not in url:
                 url = 'https://' + url
             else:
-                url = 'https://duckduckgo.com/?q=' + url.replace(' ', '+')
+                url = 'https://www.google.com/search?q=' + url.replace(' ', '+')
         wv.load_uri(url)
 
     def go_back(self) -> None:
