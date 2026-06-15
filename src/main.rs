@@ -50,6 +50,8 @@ const TAB_H: u32 = 40;
 const TOOLBAR_H: u32 = 52;
 /// Width of the left tab strip in vertical mode.
 const SIDEBAR_W: u32 = 240;
+/// Width of the right icon rail (Collections-style).
+const RAIL_W: u32 = 44;
 /// Maximum number of tabs (pre-allocated).
 const MAX_TABS: usize = 5;
 
@@ -57,6 +59,7 @@ const MAX_TABS: usize = 5;
 
 const TOOLBAR_HTML: &str = include_str!("../chrome/toolbar.html");
 const TABS_HTML:    &str = include_str!("../chrome/tabs.html");
+const RAIL_HTML:    &str = include_str!("../chrome/rail.html");
 const ADBLOCK_JS:   &str = include_str!("../chrome/adblock.js");
 
 // Injected into every content WebView: lets Rust extract page text for the Bauer Agent.
@@ -96,6 +99,7 @@ enum Cmd {
     SaveBookmark,
     RemoveBookmark  { url: String },
     ShowBookmarks,
+    ShowHistory,
     ToggleTabLayout,
     NewTab,
     NextTab,
@@ -183,17 +187,37 @@ fn tabs_rect(layout: TabLayout, w: u32, h: u32) -> Rect {
     }
 }
 
-/// Bounds of the content area for the given layout.
-fn content_rect(layout: TabLayout, w: u32, h: u32) -> Rect {
+/// Y offset and consumed-top height of the content region for a layout.
+fn content_top(layout: TabLayout) -> u32 {
     match layout {
-        TabLayout::Horizontal => {
-            let top = TAB_H + TOOLBAR_H;
-            Rect { x: 0, y: top as i32, width: w, height: h.saturating_sub(top) }
-        }
-        TabLayout::Vertical => Rect {
-            x: SIDEBAR_W as i32, y: TOOLBAR_H as i32,
-            width: w.saturating_sub(SIDEBAR_W), height: h.saturating_sub(TOOLBAR_H),
-        },
+        TabLayout::Horizontal => TAB_H + TOOLBAR_H,
+        TabLayout::Vertical   => TOOLBAR_H,
+    }
+}
+
+/// Bounds of the content area for the given layout (right edge reserved for the rail).
+fn content_rect(layout: TabLayout, w: u32, h: u32) -> Rect {
+    let top = content_top(layout);
+    let left = match layout {
+        TabLayout::Horizontal => 0,
+        TabLayout::Vertical    => SIDEBAR_W,
+    };
+    Rect {
+        x: left as i32,
+        y: top as i32,
+        width: w.saturating_sub(left + RAIL_W),
+        height: h.saturating_sub(top),
+    }
+}
+
+/// Bounds of the right icon rail for the given layout.
+fn rail_rect(layout: TabLayout, w: u32, h: u32) -> Rect {
+    let top = content_top(layout);
+    Rect {
+        x: w.saturating_sub(RAIL_W) as i32,
+        y: top as i32,
+        width: RAIL_W,
+        height: h.saturating_sub(top),
     }
 }
 
@@ -205,10 +229,18 @@ fn apply_tab_bounds(layout: TabLayout, tabs: &[wry::WebView], active: usize, w: 
     }
 }
 
-/// Reposition both chrome WebViews for the given layout.
-fn apply_chrome_bounds(layout: TabLayout, toolbar: &wry::WebView, tabstrip: &wry::WebView, w: u32, h: u32) {
+/// Reposition all chrome WebViews (toolbar, tab strip, rail) for the given layout.
+fn apply_chrome_bounds(
+    layout: TabLayout,
+    toolbar: &wry::WebView,
+    tabstrip: &wry::WebView,
+    rail: &wry::WebView,
+    w: u32,
+    h: u32,
+) {
     let _ = toolbar.set_bounds(toolbar_rect(layout, w, h));
     let _ = tabstrip.set_bounds(tabs_rect(layout, w, h));
+    let _ = rail.set_bounds(rail_rect(layout, w, h));
 }
 
 fn sync_tabs(tabstrip: &wry::WebView, metas: &[TabMeta], open_count: usize, active: usize, max_tabs: usize) {
@@ -255,6 +287,38 @@ a:hover{{color:#c0caf5;text-decoration:underline}}
 p.empty{{color:#565f89;text-align:center;margin-top:60px;line-height:2}}
 </style></head><body>
 <h1>☆ Favoritos</h1>
+{items}
+</body></html>"#)
+}
+
+fn generate_history_html(entries: &[history::HistoryEntry]) -> String {
+    let items = if entries.is_empty() {
+        "<p class=\"empty\">Histórico vazio.</p>".to_string()
+    } else {
+        let rows: String = entries.iter().map(|e| format!(
+            "<li><a href=\"{href}\">{title}</a><span class=\"meta\">{ts} · {url}</span></li>",
+            href  = html_escape(&e.url),
+            title = html_escape(if e.title.is_empty() { &e.url } else { &e.title }),
+            ts    = html_escape(&e.timestamp),
+            url   = html_escape(&e.url),
+        )).collect();
+        format!("<ul>{rows}</ul>")
+    };
+    format!(r#"<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Histórico — Bauer Browser</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:system-ui,-apple-system,sans-serif;background:#1e2030;color:#c0caf5;
+      padding:48px 24px;max-width:720px;margin:0 auto}}
+h1{{color:#7aa2f7;font-size:22px;margin-bottom:24px}}
+ul{{list-style:none}}
+li{{padding:12px 0;border-bottom:1px solid #2a2d3e}}
+a{{color:#7dcfff;font-size:15px;text-decoration:none;display:block;margin-bottom:4px}}
+a:hover{{color:#c0caf5;text-decoration:underline}}
+.meta{{display:block;font-size:11px;color:#565f89}}
+p.empty{{color:#565f89;text-align:center;margin-top:60px}}
+</style></head><body>
+<h1>🕘 Histórico</h1>
 {items}
 </body></html>"#)
 }
@@ -319,6 +383,19 @@ fn main() -> wry::Result<()> {
             match serde_json::from_str::<Cmd>(&msg) {
                 Ok(cmd) => { let _ = proxy_ts.send_event(AppEvent::Command(cmd)); }
                 Err(e)  => eprintln!("[ipc:tabs] {e} | {msg}"),
+            }
+        })
+        .build()?;
+
+    // ── Right icon rail WebView (Collections-style) ───────────────────────────
+    let proxy_rl = proxy.clone();
+    let rail = WebViewBuilder::new_as_child(&window)
+        .with_bounds(rail_rect(tab_layout, win_w, win_h))
+        .with_html(RAIL_HTML)
+        .with_ipc_handler(move |msg: String| {
+            match serde_json::from_str::<Cmd>(&msg) {
+                Ok(cmd) => { let _ = proxy_rl.send_event(AppEvent::Command(cmd)); }
+                Err(e)  => eprintln!("[ipc:rail] {e} | {msg}"),
             }
         })
         .build()?;
@@ -504,6 +581,19 @@ fn main() -> wry::Result<()> {
                     );
                 }
 
+                Cmd::ShowHistory => {
+                    let entries = history::load_entries(200);
+                    let html = generate_history_html(&entries);
+                    let escaped = serde_json::to_string(&html).unwrap_or_else(|_| "''".to_string());
+                    let _ = content_views[active_tab].evaluate_script(&format!(
+                        "document.open();document.write({escaped});document.close();"
+                    ));
+                    tab_metas[active_tab].reader_mode = false;
+                    let _ = toolbar.evaluate_script(
+                        "if(typeof setReaderMode==='function')setReaderMode(false)"
+                    );
+                }
+
                 Cmd::SaveBookmark => {
                     let url   = tab_metas[active_tab].url.clone();
                     let title = tab_metas[active_tab].title.clone();
@@ -537,7 +627,7 @@ fn main() -> wry::Result<()> {
 
                 Cmd::ToggleTabLayout => {
                     tab_layout = tab_layout.toggled();
-                    apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, cur_w, cur_h);
+                    apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, &rail, cur_w, cur_h);
                     apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h);
                     let _ = tabstrip.evaluate_script(&format!(
                         "if(typeof setTabLayout==='function')setTabLayout('{}')", tab_layout.as_str()
@@ -692,7 +782,7 @@ fn main() -> wry::Result<()> {
                 let scale = window.scale_factor();
                 cur_w = (size.width  as f64 / scale) as u32;
                 cur_h = (size.height as f64 / scale) as u32;
-                apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, cur_w, cur_h);
+                apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, &rail, cur_w, cur_h);
                 apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h);
             }
 
@@ -720,7 +810,7 @@ fn main() -> wry::Result<()> {
                 let scale = window.scale_factor();
                 cur_w = (new_inner_size.width  as f64 / scale) as u32;
                 cur_h = (new_inner_size.height as f64 / scale) as u32;
-                apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, cur_w, cur_h);
+                apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, &rail, cur_w, cur_h);
                 apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h);
             }
 

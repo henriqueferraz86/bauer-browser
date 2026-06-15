@@ -288,11 +288,16 @@ Adota as formas do Microsoft Edge mantendo as cores Tokyo Night já existentes.
 > `tabs.html` (tab strip que vira coluna lateral no modo vertical). Layout calculado
 > por `toolbar_rect`/`tabs_rect`/`content_rect` conforme `TabLayout`.
 
-### Fase C — Sidebar direita (Collections) — `[ ]`
+### Fase C — Sidebar direita (Collections)
 | # | Spec | Status |
 |---|------|--------|
-| F-08.11 | Rail de ícones na borda direita (favoritos, histórico, agente) | `[ ]` |
-| F-08.12 | Clicar num ícone abre o painel correspondente | `[ ]` |
+| F-08.11 | Rail de ícones (44px) na borda direita: ☆ favoritos, 🕘 histórico, 🤖 agente | `[x]` |
+| F-08.12 | Clicar num ícone abre o painel correspondente (injetado no content WebView) | `[x]` |
+| F-08.13 | Rail presente em ambos os modos (horizontal e vertical); conteúdo reserva 44px à direita | `[x]` |
+
+> Arquitetura: 3º WebView (`rail.html`) na borda direita. Favoritos e histórico
+> renderizam no content via `document.write` (`generate_bookmarks_html` /
+> `generate_history_html`). Histórico usa `history::load_entries(200)`.
 
 ---
 

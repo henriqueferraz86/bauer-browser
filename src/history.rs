@@ -42,24 +42,37 @@ pub fn append(url: &str, title: &str) {
     }
 }
 
-/// Load history, newest first, capped at MAX_ENTRIES. Returns only URLs (deduped).
-pub fn load_urls() -> Vec<String> {
+/// Read all entries from disk, newest first.
+fn read_all_newest_first() -> Vec<HistoryEntry> {
     let path = history_path();
     let Ok(file) = fs::File::open(&path) else { return vec![]; };
-    let reader = io::BufReader::new(file);
-
-    let mut urls: Vec<String> = reader
+    let mut entries: Vec<HistoryEntry> = io::BufReader::new(file)
         .lines()
-        .filter_map(|l| l.ok())
+        .map_while(Result::ok)
         .filter_map(|l| serde_json::from_str::<HistoryEntry>(&l).ok())
-        .map(|e| e.url)
         .collect();
+    entries.reverse();
+    entries
+}
 
-    urls.reverse();
-
-    // Deduplicate keeping first occurrence (most recent)
+/// Load history, newest first, capped at MAX_ENTRIES. Returns only URLs (deduped).
+pub fn load_urls() -> Vec<String> {
+    let mut urls: Vec<String> = read_all_newest_first().into_iter().map(|e| e.url).collect();
     let mut seen = std::collections::HashSet::new();
     urls.retain(|u| seen.insert(u.clone()));
     urls.truncate(MAX_ENTRIES);
     urls
+}
+
+/// Load full history entries, newest first, deduped by URL, capped.
+pub fn load_entries(cap: usize) -> Vec<HistoryEntry> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out: Vec<HistoryEntry> = Vec::new();
+    for e in read_all_newest_first() {
+        if seen.insert(e.url.clone()) {
+            out.push(e);
+            if out.len() >= cap { break; }
+        }
+    }
+    out
 }
