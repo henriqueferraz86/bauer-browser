@@ -168,63 +168,72 @@ fn hidden_rect() -> Rect {
     Rect { x: -9999, y: -9999, width: 1, height: 1 }
 }
 
-/// Bounds of the toolbar WebView for the given layout.
-fn toolbar_rect(layout: TabLayout, w: u32, _h: u32) -> Rect {
+// wry's set_bounds maps straight to Win32 SetWindowPos (physical/device pixels,
+// no DPI awareness). All layout math is therefore done in PHYSICAL pixels: w/h
+// come from the window's physical size and the logical constants are scaled by
+// the current DPI factor `s`.
+fn sc(v: u32, s: f64) -> u32 { (v as f64 * s).round() as u32 }
+
+/// Bounds of the toolbar WebView for the given layout (physical px).
+fn toolbar_rect(layout: TabLayout, w: u32, _h: u32, s: f64) -> Rect {
+    let tb = sc(TOOLBAR_H, s);
     match layout {
-        TabLayout::Horizontal => Rect { x: 0, y: TAB_H as i32, width: w, height: TOOLBAR_H },
-        TabLayout::Vertical   => Rect { x: 0, y: 0,             width: w, height: TOOLBAR_H },
+        TabLayout::Horizontal => Rect { x: 0, y: sc(TAB_H, s) as i32, width: w, height: tb },
+        TabLayout::Vertical   => Rect { x: 0, y: 0,                   width: w, height: tb },
     }
 }
 
-/// Bounds of the tab strip WebView for the given layout.
-fn tabs_rect(layout: TabLayout, w: u32, h: u32) -> Rect {
+/// Bounds of the tab strip WebView for the given layout (physical px).
+fn tabs_rect(layout: TabLayout, w: u32, h: u32, s: f64) -> Rect {
     match layout {
-        TabLayout::Horizontal => Rect { x: 0, y: 0, width: w, height: TAB_H },
-        TabLayout::Vertical   => Rect {
-            x: 0, y: TOOLBAR_H as i32,
-            width: SIDEBAR_W, height: h.saturating_sub(TOOLBAR_H),
-        },
+        TabLayout::Horizontal => Rect { x: 0, y: 0, width: w, height: sc(TAB_H, s) },
+        TabLayout::Vertical   => {
+            let tb = sc(TOOLBAR_H, s);
+            Rect { x: 0, y: tb as i32, width: sc(SIDEBAR_W, s), height: h.saturating_sub(tb) }
+        }
     }
 }
 
-/// Y offset and consumed-top height of the content region for a layout.
-fn content_top(layout: TabLayout) -> u32 {
+/// Physical-pixel Y offset of the content region for a layout.
+fn content_top(layout: TabLayout, s: f64) -> u32 {
     match layout {
-        TabLayout::Horizontal => TAB_H + TOOLBAR_H,
-        TabLayout::Vertical   => TOOLBAR_H,
+        TabLayout::Horizontal => sc(TAB_H, s) + sc(TOOLBAR_H, s),
+        TabLayout::Vertical   => sc(TOOLBAR_H, s),
     }
 }
 
 /// Bounds of the content area for the given layout (right edge reserved for the rail).
-fn content_rect(layout: TabLayout, w: u32, h: u32) -> Rect {
-    let top = content_top(layout);
+fn content_rect(layout: TabLayout, w: u32, h: u32, s: f64) -> Rect {
+    let top  = content_top(layout, s);
     let left = match layout {
         TabLayout::Horizontal => 0,
-        TabLayout::Vertical    => SIDEBAR_W,
+        TabLayout::Vertical    => sc(SIDEBAR_W, s),
     };
+    let rail = sc(RAIL_W, s);
     Rect {
         x: left as i32,
         y: top as i32,
-        width: w.saturating_sub(left + RAIL_W),
+        width: w.saturating_sub(left + rail),
         height: h.saturating_sub(top),
     }
 }
 
 /// Bounds of the right icon rail for the given layout.
-fn rail_rect(layout: TabLayout, w: u32, h: u32) -> Rect {
-    let top = content_top(layout);
+fn rail_rect(layout: TabLayout, w: u32, h: u32, s: f64) -> Rect {
+    let top  = content_top(layout, s);
+    let rail = sc(RAIL_W, s);
     Rect {
-        x: w.saturating_sub(RAIL_W) as i32,
+        x: w.saturating_sub(rail) as i32,
         y: top as i32,
-        width: RAIL_W,
+        width: rail,
         height: h.saturating_sub(top),
     }
 }
 
 /// Show the active content WebView, hide the rest.
-fn apply_tab_bounds(layout: TabLayout, tabs: &[wry::WebView], active: usize, w: u32, h: u32) {
+fn apply_tab_bounds(layout: TabLayout, tabs: &[wry::WebView], active: usize, w: u32, h: u32, s: f64) {
     for (i, wv) in tabs.iter().enumerate() {
-        let r = if i == active { content_rect(layout, w, h) } else { hidden_rect() };
+        let r = if i == active { content_rect(layout, w, h, s) } else { hidden_rect() };
         let _ = wv.set_bounds(r);
     }
 }
@@ -237,10 +246,11 @@ fn apply_chrome_bounds(
     rail: &wry::WebView,
     w: u32,
     h: u32,
+    s: f64,
 ) {
-    let _ = toolbar.set_bounds(toolbar_rect(layout, w, h));
-    let _ = tabstrip.set_bounds(tabs_rect(layout, w, h));
-    let _ = rail.set_bounds(rail_rect(layout, w, h));
+    let _ = toolbar.set_bounds(toolbar_rect(layout, w, h, s));
+    let _ = tabstrip.set_bounds(tabs_rect(layout, w, h, s));
+    let _ = rail.set_bounds(rail_rect(layout, w, h, s));
 }
 
 fn sync_tabs(tabstrip: &wry::WebView, metas: &[TabMeta], open_count: usize, active: usize, max_tabs: usize) {
@@ -351,20 +361,22 @@ fn main() -> wry::Result<()> {
     let window = WindowBuilder::new()
         .with_title("Bauer Browser")
         .with_inner_size(LogicalSize::new(1280_u32, 800_u32))
+        .with_maximized(true)
         .build(&event_loop)
         .expect("Window creation failed");
 
-    let psize  = window.inner_size();
-    let scale  = window.scale_factor();
-    let win_w  = (psize.width  as f64 / scale) as u32;
-    let win_h  = (psize.height as f64 / scale) as u32;
+    // Physical pixels — wry child WebViews are positioned via Win32 SetWindowPos.
+    let psize     = window.inner_size();
+    let mut scale = window.scale_factor();
+    let win_w     = psize.width;
+    let win_h     = psize.height;
 
     let mut tab_layout = TabLayout::Horizontal;
 
     // ── Toolbar WebView ───────────────────────────────────────────────────────
     let proxy_tb = proxy.clone();
     let toolbar = WebViewBuilder::new_as_child(&window)
-        .with_bounds(toolbar_rect(tab_layout, win_w, win_h))
+        .with_bounds(toolbar_rect(tab_layout, win_w, win_h, scale))
         .with_html(TOOLBAR_HTML)
         .with_ipc_handler(move |msg: String| {
             match serde_json::from_str::<Cmd>(&msg) {
@@ -377,7 +389,7 @@ fn main() -> wry::Result<()> {
     // ── Tab strip WebView ─────────────────────────────────────────────────────
     let proxy_ts = proxy.clone();
     let tabstrip = WebViewBuilder::new_as_child(&window)
-        .with_bounds(tabs_rect(tab_layout, win_w, win_h))
+        .with_bounds(tabs_rect(tab_layout, win_w, win_h, scale))
         .with_html(TABS_HTML)
         .with_ipc_handler(move |msg: String| {
             match serde_json::from_str::<Cmd>(&msg) {
@@ -390,7 +402,7 @@ fn main() -> wry::Result<()> {
     // ── Right icon rail WebView (Collections-style) ───────────────────────────
     let proxy_rl = proxy.clone();
     let rail = WebViewBuilder::new_as_child(&window)
-        .with_bounds(rail_rect(tab_layout, win_w, win_h))
+        .with_bounds(rail_rect(tab_layout, win_w, win_h, scale))
         .with_html(RAIL_HTML)
         .with_ipc_handler(move |msg: String| {
             match serde_json::from_str::<Cmd>(&msg) {
@@ -415,7 +427,7 @@ fn main() -> wry::Result<()> {
             let bl_t        = blocklist.clone();
             let is          = init_script.clone();
             let url         = if i == 0 { home.as_str() } else { "about:blank" };
-            let rect        = if i == 0 { content_rect(tab_layout, win_w, win_h) } else { hidden_rect() };
+            let rect        = if i == 0 { content_rect(tab_layout, win_w, win_h, scale) } else { hidden_rect() };
 
             let proxy_title = proxy.clone();
             let proxy_dls   = proxy.clone();
@@ -627,8 +639,8 @@ fn main() -> wry::Result<()> {
 
                 Cmd::ToggleTabLayout => {
                     tab_layout = tab_layout.toggled();
-                    apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, &rail, cur_w, cur_h);
-                    apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h);
+                    apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, &rail, cur_w, cur_h, scale);
+                    apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h, scale);
                     let _ = tabstrip.evaluate_script(&format!(
                         "if(typeof setTabLayout==='function')setTabLayout('{}')", tab_layout.as_str()
                     ));
@@ -642,7 +654,7 @@ fn main() -> wry::Result<()> {
                     if open_count > 1 {
                         active_tab = (active_tab + 1) % open_count;
                         switch_to_tab(active_tab, &tab_metas, &content_views, &toolbar, &tabstrip,
-                                      &bm_list, &mut cur_mode, tab_layout, open_count, max_tabs, cur_w, cur_h, &window);
+                                      &bm_list, &mut cur_mode, tab_layout, open_count, max_tabs, cur_w, cur_h, scale, &window);
                     }
                 }
 
@@ -650,7 +662,7 @@ fn main() -> wry::Result<()> {
                     if open_count > 1 {
                         active_tab = if active_tab == 0 { open_count - 1 } else { active_tab - 1 };
                         switch_to_tab(active_tab, &tab_metas, &content_views, &toolbar, &tabstrip,
-                                      &bm_list, &mut cur_mode, tab_layout, open_count, max_tabs, cur_w, cur_h, &window);
+                                      &bm_list, &mut cur_mode, tab_layout, open_count, max_tabs, cur_w, cur_h, scale, &window);
                     }
                 }
 
@@ -661,7 +673,7 @@ fn main() -> wry::Result<()> {
                         tab_metas[idx] = TabMeta::new(&cfg.home_url, &default_mode);
                         content_views[idx].load_url(&cfg.home_url);
                         active_tab = idx;
-                        apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h);
+                        apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h, scale);
                         sync_tabs(&tabstrip, &tab_metas, open_count, active_tab, max_tabs);
                         window.set_title("New Tab — Bauer Browser");
                     }
@@ -671,7 +683,7 @@ fn main() -> wry::Result<()> {
                     if index < open_count {
                         active_tab = index;
                         switch_to_tab(active_tab, &tab_metas, &content_views, &toolbar, &tabstrip,
-                                      &bm_list, &mut cur_mode, tab_layout, open_count, max_tabs, cur_w, cur_h, &window);
+                                      &bm_list, &mut cur_mode, tab_layout, open_count, max_tabs, cur_w, cur_h, scale, &window);
                     }
                 }
 
@@ -702,7 +714,7 @@ fn main() -> wry::Result<()> {
                         };
 
                         switch_to_tab(active_tab, &tab_metas, &content_views, &toolbar, &tabstrip,
-                                      &bm_list, &mut cur_mode, tab_layout, open_count, max_tabs, cur_w, cur_h, &window);
+                                      &bm_list, &mut cur_mode, tab_layout, open_count, max_tabs, cur_w, cur_h, scale, &window);
                     }
                 }
             },
@@ -779,11 +791,11 @@ fn main() -> wry::Result<()> {
 
             // ── Window resize ─────────────────────────────────────────────────
             Event::WindowEvent { event: WindowEvent::Resized(size), .. } => {
-                let scale = window.scale_factor();
-                cur_w = (size.width  as f64 / scale) as u32;
-                cur_h = (size.height as f64 / scale) as u32;
-                apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, &rail, cur_w, cur_h);
-                apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h);
+                scale = window.scale_factor();
+                cur_w = size.width;   // physical px
+                cur_h = size.height;
+                apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, &rail, cur_w, cur_h, scale);
+                apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h, scale);
             }
 
             // ── Download started (F-04) ───────────────────────────────────────
@@ -807,11 +819,11 @@ fn main() -> wry::Result<()> {
             Event::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { new_inner_size, .. }, ..
             } => {
-                let scale = window.scale_factor();
-                cur_w = (new_inner_size.width  as f64 / scale) as u32;
-                cur_h = (new_inner_size.height as f64 / scale) as u32;
-                apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, &rail, cur_w, cur_h);
-                apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h);
+                scale = window.scale_factor();
+                cur_w = new_inner_size.width;   // physical px
+                cur_h = new_inner_size.height;
+                apply_chrome_bounds(tab_layout, &toolbar, &tabstrip, &rail, cur_w, cur_h, scale);
+                apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h, scale);
             }
 
             // ── Close ─────────────────────────────────────────────────────────
@@ -842,10 +854,11 @@ fn switch_to_tab(
     max_tabs: usize,
     w: u32,
     h: u32,
+    s: f64,
     window: &tao::window::Window,
 ) {
     *cur_mode = metas[active].mode.clone();
-    apply_tab_bounds(layout, content_views, active, w, h);
+    apply_tab_bounds(layout, content_views, active, w, h, s);
     sync_tabs(tabstrip, metas, open_count, active, max_tabs);
 
     let url = metas[active].url.clone();

@@ -49,11 +49,29 @@ pub const READER_MODE_JS: &str = r#"(function(){
     var root=null;
     for(var i=0;i<sels.length;i++){root=document.querySelector(sels[i]);if(root)break;}
     if(!root)root=document.body;
+    var base=document.baseURI||location.href;
+    function abs(u){try{return new URL(u,base).href;}catch(_){return u;}}
     var c=root.cloneNode(true);
     c.querySelectorAll(
         'script,style,nav,header,footer,aside,iframe,.ad,.ads,'+
         '.advertisement,.sidebar,[class*="banner"],[class*="popup"]'
     ).forEach(function(e){e.remove();});
+    c.querySelectorAll('img').forEach(function(im){
+        var ds=im.getAttribute('data-src')||im.getAttribute('data-original')||
+               im.getAttribute('data-lazy-src')||im.getAttribute('data-lazy')||
+               im.getAttribute('data-echo')||'';
+        var cur=im.getAttribute('src')||'';
+        if(ds && (!cur || cur.indexOf('data:')===0)) cur=ds;
+        if(cur) im.setAttribute('src', abs(cur));
+        var ss=im.getAttribute('data-srcset')||im.getAttribute('srcset')||'';
+        if(ss) im.setAttribute('srcset', ss);
+        im.removeAttribute('loading');
+        if(!im.getAttribute('src') && !im.getAttribute('srcset')) im.remove();
+    });
+    c.querySelectorAll('source[srcset],source[data-srcset]').forEach(function(s){
+        var ss=s.getAttribute('data-srcset')||s.getAttribute('srcset');
+        if(ss) s.setAttribute('srcset', ss);
+    });
     var css='body{font-family:Georgia,serif;font-size:19px;line-height:1.85;'+
         'max-width:720px;margin:48px auto;padding:0 24px 80px;color:#2c3e50;background:#fafafa}'+
         'h1,h2,h3{color:#1a252f}a{color:#2980b9}'+
@@ -63,6 +81,7 @@ pub const READER_MODE_JS: &str = r#"(function(){
         'code{background:#f0f0f0;padding:2px 6px;border-radius:3px}';
     var html='<!DOCTYPE html><html><head><meta charset="utf-8">'+
         '<meta name="viewport" content="width=device-width,initial-scale=1">'+
+        '<base href="'+base+'">'+
         '<title>'+document.title+'</title><style>'+css+'</style></head><body>'+
         '<h1>'+document.title+'</h1><div>'+c.innerHTML+'</div></body></html>';
     document.open();document.write(html);document.close();
