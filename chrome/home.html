@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bauer</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Para usar uma imagem de fundo própria: troque os radial-gradient abaixo por
+   background: url('SUA_IMAGEM') center/cover no-repeat, #070b18;  */
+html, body {
+  height: 100%;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #eaf1ff;
+  background:
+    radial-gradient(120% 90% at 78% 16%, rgba(20,58,122,0.35) 0%, transparent 42%),
+    radial-gradient(90% 80% at 16% 92%, rgba(14,42,90,0.30) 0%, transparent 46%),
+    radial-gradient(55% 55% at 70% 46%, rgba(27,70,137,0.22) 0%, transparent 60%),
+    #070b18;
+  overflow: hidden;
+}
+
+#stars {
+  position: fixed; inset: 0; pointer-events: none; opacity: .7;
+}
+#stars span {
+  position: absolute; width: 2px; height: 2px; border-radius: 50%;
+  background: #9ec5ff;
+}
+
+.stage {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+}
+
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand .mark {
+  width: 56px; height: 56px; border-radius: 13px;
+  background: linear-gradient(135deg, #2f80ed, #1b5fc0);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; font-weight: 700; color: #fff;
+  box-shadow: 0 0 26px rgba(47,128,237,0.45);
+}
+.brand .word { font-size: 36px; font-weight: 600; letter-spacing: 4px; color: #eaf1ff; }
+
+.tagline { font-size: 15px; letter-spacing: 2px; color: #7e93b8; margin-top: -8px; }
+
+#search {
+  width: 100%; max-width: 560px;
+  display: flex; align-items: center; gap: 11px;
+  height: 54px; padding: 0 20px;
+  border-radius: 27px;
+  background: #0d162b;
+  border: 1px solid #24467f;
+  box-shadow: 0 0 0 4px rgba(47,128,237,0.12);
+  transition: border-color .15s, box-shadow .15s;
+}
+#search:focus-within { border-color: #2f80ed; box-shadow: 0 0 0 4px rgba(47,128,237,0.25); }
+#search .ic { color: #5f7bb0; font-size: 18px; }
+#q {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: #eaf1ff; font-size: 15px;
+}
+#q::placeholder { color: #5f7bb0; }
+
+.cards {
+  width: 100%; max-width: 560px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  margin-top: 4px;
+}
+.card {
+  background: #0d162b; border: 1px solid #1d335e; border-radius: 14px;
+  padding: 18px 8px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+.card:hover { border-color: #2f80ed; background: #122140; transform: translateY(-2px); }
+.card svg { width: 26px; height: 26px; stroke: #7aa2f7; fill: none; stroke-width: 1.6; }
+.card span { font-size: 13px; color: #c7d6f0; }
+</style>
+</head>
+<body>
+<div id="stars"></div>
+<div class="stage">
+
+  <div class="brand">
+    <div class="mark">B</div>
+    <div class="word">BAUER</div>
+  </div>
+  <div class="tagline">Explore. Connect. Build.</div>
+
+  <form id="search" onsubmit="go(document.getElementById('q').value); return false;">
+    <span class="ic">🔍</span>
+    <input id="q" type="text" placeholder="Pesquisar ou digitar endereço" autofocus />
+  </form>
+
+  <div class="cards">
+    <div class="card" onclick="go('AI tools')">
+      <svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>
+      <span>AI Tools</span>
+    </div>
+    <div class="card" onclick="go('Web3')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M12 7.5v4M10 13l-3 3M14 13l3 3"/></svg>
+      <span>Web3</span>
+    </div>
+    <div class="card" onclick="go('cloud computing')">
+      <svg viewBox="0 0 24 24"><path d="M6 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 18 18z"/></svg>
+      <span>Cloud</span>
+    </div>
+    <div class="card" onclick="go('documentation')">
+      <svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></svg>
+      <span>Docs</span>
+    </div>
+  </div>
+
+</div>
+<script>
+function go(q) {
+  q = (q || '').trim();
+  if (!q) return;
+  var u;
+  if (/^https?:\/\//i.test(q)) u = q;
+  else if (q.indexOf(' ') < 0 && q.indexOf('.') > 0) u = 'https://' + q;
+  else u = 'https://duckduckgo.com/?q=' + encodeURIComponent(q);
+  location.href = u;
+}
+(function () {
+  var s = document.getElementById('stars');
+  var html = '';
+  for (var i = 0; i < 60; i++) {
+    var x = Math.random() * 100, y = Math.random() * 100, o = (0.3 + Math.random() * 0.6).toFixed(2);
+    html += '<span style="left:' + x.toFixed(2) + '%;top:' + y.toFixed(2) + '%;opacity:' + o + '"></span>';
+  }
+  s.innerHTML = html;
+})();
+</script>
+</body>
+</html>

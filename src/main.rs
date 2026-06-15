@@ -60,6 +60,7 @@ const MAX_TABS: usize = 5;
 const TOOLBAR_HTML: &str = include_str!("../chrome/toolbar.html");
 const TABS_HTML:    &str = include_str!("../chrome/tabs.html");
 const RAIL_HTML:    &str = include_str!("../chrome/rail.html");
+const HOME_HTML:    &str = include_str!("../chrome/home.html");
 const ADBLOCK_JS:   &str = include_str!("../chrome/adblock.js");
 
 // Injected into every content WebView: lets Rust extract page text for the Bauer Agent.
@@ -147,6 +148,10 @@ impl TabMeta {
     }
     fn blank(default_mode: &str) -> Self {
         Self { url: "about:blank".into(), title: "".into(), mode: default_mode.into(), open: false, reader_mode: false }
+    }
+    /// A tab showing the Bauer home page (empty URL bar).
+    fn home(default_mode: &str) -> Self {
+        Self { url: String::new(), title: "Bauer".into(), mode: default_mode.into(), open: true, reader_mode: false }
     }
 }
 
@@ -333,6 +338,12 @@ p.empty{{color:#565f89;text-align:center;margin-top:60px}}
 </body></html>"#)
 }
 
+/// Write the Bauer home page into a content WebView (used for home button / new tab).
+fn load_home(wv: &wry::WebView) {
+    let j = serde_json::to_string(HOME_HTML).unwrap_or_else(|_| "''".to_string());
+    let _ = wv.evaluate_script(&format!("document.open();document.write({j});document.close();"));
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 fn main() -> wry::Result<()> {
@@ -413,7 +424,7 @@ fn main() -> wry::Result<()> {
         .build()?;
 
     // ── Content WebViews ──────────────────────────────────────────────────────
-    let mut tab_metas: Vec<TabMeta> = vec![TabMeta::new(&home, &default_mode)];
+    let mut tab_metas: Vec<TabMeta> = vec![TabMeta::home(&default_mode)];
     for _ in 1..MAX_TABS {
         tab_metas.push(TabMeta::blank(&default_mode));
     }
@@ -426,15 +437,15 @@ fn main() -> wry::Result<()> {
             let proxy_ipc   = proxy.clone();
             let bl_t        = blocklist.clone();
             let is          = init_script.clone();
-            let url         = if i == 0 { home.as_str() } else { "about:blank" };
             let rect        = if i == 0 { content_rect(tab_layout, win_w, win_h, scale) } else { hidden_rect() };
 
             let proxy_title = proxy.clone();
             let proxy_dls   = proxy.clone();
             let proxy_dlc   = proxy.clone();
-            WebViewBuilder::new_as_child(&window)
-                .with_bounds(rect)
-                .with_url(url)
+            let base = WebViewBuilder::new_as_child(&window).with_bounds(rect);
+            // Tab 0 shows the Bauer home page; the rest start blank.
+            let base = if i == 0 { base.with_html(HOME_HTML) } else { base.with_url("about:blank") };
+            base
                 .with_initialization_script(&is)
                 .with_navigation_handler(move |url: String| {
                     if block_enabled && bl_t.is_blocked(&url) { return false; }
@@ -529,13 +540,15 @@ fn main() -> wry::Result<()> {
                     content_views[active_tab].load_url(&url);
                 }
                 Cmd::Home => {
-                    let url = cfg.home_url.clone();
-                    tab_metas[active_tab].url = url.clone();
+                    tab_metas[active_tab].url = String::new();
+                    tab_metas[active_tab].title = "Bauer".into();
                     tab_metas[active_tab].reader_mode = false;
-                    let _ = toolbar.evaluate_script(
-                        "if(typeof setReaderMode==='function')setReaderMode(false)"
-                    );
-                    content_views[active_tab].load_url(&url);
+                    load_home(&content_views[active_tab]);
+                    let _ = toolbar.evaluate_script("if(typeof setUrlBar==='function')setUrlBar('')");
+                    let _ = toolbar.evaluate_script("if(typeof setReaderMode==='function')setReaderMode(false)");
+                    let _ = toolbar.evaluate_script("if(typeof setBookmarkState==='function')setBookmarkState(false)");
+                    sync_tabs(&tabstrip, &tab_metas, open_count, active_tab, max_tabs);
+                    window.set_title("Bauer Browser");
                 }
                 Cmd::Back => {
                     tab_metas[active_tab].reader_mode = false;
@@ -670,12 +683,15 @@ fn main() -> wry::Result<()> {
                     if open_count < max_tabs {
                         let idx = open_count;
                         open_count += 1;
-                        tab_metas[idx] = TabMeta::new(&cfg.home_url, &default_mode);
-                        content_views[idx].load_url(&cfg.home_url);
+                        tab_metas[idx] = TabMeta::home(&default_mode);
+                        load_home(&content_views[idx]);
                         active_tab = idx;
                         apply_tab_bounds(tab_layout, &content_views, active_tab, cur_w, cur_h, scale);
                         sync_tabs(&tabstrip, &tab_metas, open_count, active_tab, max_tabs);
-                        window.set_title("New Tab — Bauer Browser");
+                        let _ = toolbar.evaluate_script("if(typeof setUrlBar==='function')setUrlBar('')");
+                        let _ = toolbar.evaluate_script("if(typeof setBookmarkState==='function')setBookmarkState(false)");
+                        let _ = toolbar.evaluate_script("if(typeof setReaderMode==='function')setReaderMode(false)");
+                        window.set_title("Bauer Browser");
                     }
                 }
 
@@ -691,11 +707,14 @@ fn main() -> wry::Result<()> {
                     let index = if index == usize::MAX { active_tab } else { index };
 
                     if open_count == 1 {
-                        // B-06: last tab — reset to home instead of exiting
-                        tab_metas[0] = TabMeta::new(&cfg.home_url, &default_mode);
-                        content_views[0].load_url(&cfg.home_url);
+                        // B-06: last tab — reset to Bauer home instead of exiting
+                        tab_metas[0] = TabMeta::home(&default_mode);
+                        load_home(&content_views[0]);
                         active_tab = 0;
                         sync_tabs(&tabstrip, &tab_metas, 1, 0, max_tabs);
+                        let _ = toolbar.evaluate_script("if(typeof setUrlBar==='function')setUrlBar('')");
+                        let _ = toolbar.evaluate_script("if(typeof setBookmarkState==='function')setBookmarkState(false)");
+                        window.set_title("Bauer Browser");
                     } else if index < open_count {
                         for i in index..open_count - 1 {
                             tab_metas[i] = tab_metas[i + 1].clone();
