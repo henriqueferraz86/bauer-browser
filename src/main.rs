@@ -57,6 +57,7 @@ const CONTENT_IPC_JS: &str = r#"(function(){})();"#;
 #[serde(tag = "action", rename_all = "camelCase")]
 enum Cmd {
     Navigate        { url: String },
+    Home,
     Back,
     Forward,
     Reload,
@@ -347,6 +348,15 @@ fn main() -> wry::Result<()> {
 
                 Cmd::Navigate { url } => {
                     let url = normalize_url(&url);
+                    tab_metas[active_tab].url = url.clone();
+                    tab_metas[active_tab].reader_mode = false;
+                    let _ = chrome.evaluate_script(
+                        "if(typeof setReaderMode==='function')setReaderMode(false)"
+                    );
+                    content_views[active_tab].load_url(&url);
+                }
+                Cmd::Home => {
+                    let url = cfg.home_url.clone();
                     tab_metas[active_tab].url = url.clone();
                     tab_metas[active_tab].reader_mode = false;
                     let _ = chrome.evaluate_script(

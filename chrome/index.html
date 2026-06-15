@@ -3,12 +3,25 @@
 <head>
 <meta charset="utf-8">
 <style>
+:root {
+  --bg:          #1e2030;
+  --tabbar-bg:   #16181f;
+  --surface:     #2a2d3e;
+  --surface-2:   #383c58;
+  --text:        #c0caf5;
+  --text-muted:  #7982a9;
+  --accent:      #7aa2f7;
+  --hover:       rgba(192,202,245,0.09);
+  --hover-strong:rgba(192,202,245,0.15);
+  --danger:      #f7768e;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: #1e2030;
-  color: #c0caf5;
-  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   height: 92px;
   display: flex;
   flex-direction: column;
@@ -16,14 +29,14 @@ body {
   user-select: none;
 }
 
-/* ── Tab bar (top 36px) ───────────────────────────────── */
+/* ── Tab strip (Edge-style floating tabs) ─────────────── */
 #tabbar {
   display: flex;
-  align-items: flex-end;
-  gap: 3px;
+  align-items: center;
+  gap: 2px;
   padding: 6px 8px 0;
-  height: 36px;
-  background: #16181f;
+  height: 40px;
+  background: var(--tabbar-bg);
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -31,23 +44,31 @@ body {
 .tab {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 0 10px 0 12px;
-  height: 28px;
-  background: #2a2d3e;
-  border-radius: 7px 7px 0 0;
+  gap: 7px;
+  padding: 0 8px 0 12px;
+  height: 32px;
+  background: transparent;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 12px;
-  max-width: 160px;
-  min-width: 80px;
-  color: #7982a9;
-  border: 1px solid #414868;
-  border-bottom: none;
-  transition: background .12s;
-  flex-shrink: 0;
+  max-width: 200px;
+  min-width: 90px;
+  color: var(--text-muted);
+  transition: background .12s, color .12s;
+  flex-shrink: 1;
+  position: relative;
 }
-.tab:hover   { background: #383c58; color: #c0caf5; }
-.tab.active  { background: #1e2030; color: #c0caf5; border-color: #545c7e; }
+.tab:hover            { background: var(--hover); color: var(--text); }
+.tab.active           { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.tab.active::after {
+  content: ""; position: absolute; left: 8px; right: 8px; bottom: -6px; height: 0;
+}
+
+.tab-favicon {
+  width: 14px; height: 14px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; opacity: .85;
+}
 
 .tab-title {
   flex: 1;
@@ -61,82 +82,132 @@ body {
   border: none;
   color: inherit;
   cursor: pointer;
-  font-size: 13px;
-  padding: 0 0 0 2px;
+  font-size: 14px;
+  width: 18px; height: 18px;
   line-height: 1;
-  opacity: 0.6;
+  border-radius: 50%;
+  opacity: 0.55;
   flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .1s, opacity .1s;
 }
-.tab-close:hover { opacity: 1; color: #f7768e; }
+.tab-close:hover { opacity: 1; background: var(--hover-strong); color: var(--danger); }
 
 #btn-new-tab {
   background: none;
   border: none;
-  color: #565f89;
-  font-size: 18px;
+  color: var(--text-muted);
+  font-size: 17px;
   cursor: pointer;
-  padding: 0 6px;
-  height: 28px;
-  border-radius: 6px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
   flex-shrink: 0;
-  transition: opacity .15s;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: 2px;
+  transition: background .12s, color .12s;
 }
-#btn-new-tab:hover:not(:disabled) { color: #c0caf5; background: #2a2d3e; }
+#btn-new-tab:hover:not(:disabled) { color: var(--text); background: var(--hover); }
 #btn-new-tab:disabled { opacity: 0.25; cursor: not-allowed; }
 
-/* ── Toolbar row (bottom 56px) ────────────────────────── */
+/* ── Toolbar ──────────────────────────────────────────── */
 #toolbar {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 2px;
   padding: 0 8px;
-  height: 56px;
+  height: 52px;
   flex-shrink: 0;
 }
 
-button.bb {
-  background: #2a2d3e;
-  color: #c0caf5;
-  border: 1px solid #414868;
-  border-radius: 7px;
-  padding: 0 10px;
-  height: 32px;
+/* Circular icon buttons (nav + actions) */
+button.icon {
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
   cursor: pointer;
-  font-size: 15px;
-  white-space: nowrap;
+  font-size: 16px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background .12s;
 }
-button.bb:hover  { background: #414868; }
-button.bb:active { background: #545c7e; }
+button.icon:hover  { background: var(--hover); }
+button.icon:active { background: var(--hover-strong); }
+button.icon:disabled { opacity: 0.3; cursor: default; background: transparent; }
 
+.tb-gap { width: 4px; flex-shrink: 0; }
+
+/* Address pill */
+#url-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: 18px;
+  height: 36px;
+  padding: 0 14px;
+  margin: 0 6px;
+  transition: border-color .12s, box-shadow .12s, background .12s;
+}
+#url-wrap:focus-within {
+  background: #20232f;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(122,162,247,.18);
+}
+#url-lead { font-size: 13px; color: var(--text-muted); flex-shrink: 0; }
 #url {
   flex: 1;
-  background: #2a2d3e;
-  color: #c0caf5;
-  border: 1px solid #414868;
-  border-radius: 8px;
-  padding: 0 12px;
-  height: 32px;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  height: 100%;
   font-size: 13px;
   outline: none;
 }
-#url:focus   { border-color: #7aa2f7; box-shadow: 0 0 0 2px rgba(122,162,247,.15); }
-#url::placeholder { color: #565f89; }
+#url::placeholder { color: var(--text-muted); }
 
+/* Mode selector */
 #mode {
-  background: #2a2d3e;
-  color: #c0caf5;
-  border: 1px solid #414868;
-  border-radius: 7px;
-  padding: 0 8px;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 16px;
+  padding: 0 6px;
   height: 32px;
   font-size: 12px;
   cursor: pointer;
+  transition: background .12s;
 }
+#mode:hover { background: var(--hover); }
 
-#ram { font-size: 11px; min-width: 58px; text-align: right; color: #565f89; }
-#ram.alert { color: #f7768e; }
+#ram {
+  font-size: 11px;
+  min-width: 56px;
+  text-align: right;
+  color: var(--text-muted);
+  padding-left: 4px;
+  flex-shrink: 0;
+}
+#ram.alert { color: var(--danger); }
+
+/* Active states */
+#btn-reader.active   { background: rgba(122,162,247,.22); color: var(--accent); }
+#btn-bookmark.bookmarked { color: #e0af68; }
+
+/* Agent pill button keeps a label */
+#btn-agent {
+  width: auto;
+  border-radius: 17px;
+  padding: 0 12px;
+  font-size: 12px;
+  gap: 4px;
+}
 
 /* ── Download toast ───────────────────────────────────── */
 #dl-toast {
@@ -148,7 +219,7 @@ button.bb:active { background: #545c7e; }
   border: 1px solid #414868;
   border-radius: 0 8px 0 0;
   font-size: 12px;
-  color: #c0caf5;
+  color: var(--text);
   max-width: 280px;
   white-space: nowrap;
   overflow: hidden;
@@ -156,14 +227,7 @@ button.bb:active { background: #545c7e; }
   z-index: 9997;
 }
 #dl-toast.done  { border-color: #9ece6a; color: #9ece6a; }
-#dl-toast.error { border-color: #f7768e; color: #f7768e; }
-
-/* ── Reader mode button active state ──────────────────── */
-#btn-reader.active { background: #3d59a1; border-color: #7aa2f7; color: #c0caf5; }
-
-/* ── Bookmark button active state ─────────────────────── */
-#btn-bookmark.bookmarked { color: #e0af68; }
-
+#dl-toast.error { border-color: var(--danger); color: var(--danger); }
 
 /* ── Agent result panel ───────────────────────────────── */
 #agent-panel {
@@ -177,7 +241,7 @@ button.bb:active { background: #545c7e; }
   border-radius: 10px 0 0 0;
   padding: 12px;
   font-size: 13px;
-  color: #c0caf5;
+  color: var(--text);
   overflow-y: auto;
   z-index: 9999;
   box-shadow: -4px -4px 20px rgba(0,0,0,.4);
@@ -187,16 +251,16 @@ button.bb:active { background: #545c7e; }
   justify-content: space-between;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #7aa2f7;
+  color: var(--accent);
 }
-#agent-close { cursor: pointer; color: #565f89; }
-#agent-close:hover { color: #c0caf5; }
+#agent-close { cursor: pointer; color: var(--text-muted); }
+#agent-close:hover { color: var(--text); }
 #agent-text  { white-space: pre-wrap; line-height: 1.6; }
 </style>
 </head>
 <body>
 
-<!-- Tab bar -->
+<!-- Tab strip -->
 <div id="tabbar">
   <!-- Tabs injected by updateTabs() -->
   <button id="btn-new-tab" title="New Tab (Ctrl+T)" onclick="newTabClick()">＋</button>
@@ -204,14 +268,18 @@ button.bb:active { background: #545c7e; }
 
 <!-- Toolbar -->
 <div id="toolbar">
-  <button class="bb" title="Back (Alt+←)"    onclick="send('back')">←</button>
-  <button class="bb" title="Forward (Alt+→)" onclick="send('forward')">→</button>
-  <button class="bb" title="Reload (F5)"     onclick="send('reload')">↺</button>
+  <button class="icon" title="Back (Alt+←)"    onclick="send('back')">←</button>
+  <button class="icon" title="Forward (Alt+→)" onclick="send('forward')">→</button>
+  <button class="icon" title="Reload (F5)"     onclick="send('reload')">↺</button>
+  <button class="icon" title="Home"            onclick="send('home')">🏠</button>
 
-  <input id="url" type="text" list="url-history" placeholder="Enter URL or search…"
-         onkeydown="if(event.key==='Enter')navigate()"
-         onfocus="this.select()" />
-  <datalist id="url-history"></datalist>
+  <div id="url-wrap">
+    <span id="url-lead">🔍</span>
+    <input id="url" type="text" list="url-history" placeholder="Pesquisar ou digitar endereço"
+           onkeydown="if(event.key==='Enter')navigate()"
+           onfocus="this.select()" />
+    <datalist id="url-history"></datalist>
+  </div>
 
   <select id="mode" title="Page mode" onchange="send('setMode',{mode:this.value})">
     <option value="lite">🌿 Lite</option>
@@ -219,14 +287,12 @@ button.bb:active { background: #545c7e; }
     <option value="full">🔥 Full</option>
   </select>
 
-  <button class="bb" id="btn-reader" title="Reader Mode" onclick="send('readerMode')">📖</button>
-  <button class="bb" id="btn-bookmark" title="Add to bookmarks (Ctrl+D)"
-          onclick="bookmarkClick()">☆</button>
-  <button class="bb" id="btn-bookmark-list" title="Show bookmarks"
-          onclick="send('showBookmarks')">≡</button>
-  <button class="bb" id="btn-agent" style="font-size:12px;min-width:88px"
-          title="Summarize with Bauer Agent"
-          onclick="agentClick()">🤖 Resumir</button>
+  <span class="tb-gap"></span>
+
+  <button class="icon" id="btn-reader"   title="Reader Mode"             onclick="send('readerMode')">📖</button>
+  <button class="icon" id="btn-bookmark" title="Add to bookmarks (Ctrl+D)" onclick="bookmarkClick()">☆</button>
+  <button class="icon" id="btn-bookmark-list" title="Show bookmarks"     onclick="send('showBookmarks')">≡</button>
+  <button class="icon" id="btn-agent"    title="Summarize with Bauer Agent" onclick="agentClick()">🤖 Resumir</button>
 
   <span id="ram">-- MB</span>
 </div>
@@ -371,6 +437,11 @@ function updateTabs(tabs, activeIndex, maxTabs) {
     var div = document.createElement('div');
     div.className = 'tab' + (i === activeIndex ? ' active' : '');
     div.onclick = function() { send('switchTab', { index: i }); };
+
+    var fav = document.createElement('span');
+    fav.className = 'tab-favicon';
+    fav.textContent = '🌐';
+    div.appendChild(fav);
 
     var title = document.createElement('span');
     title.className = 'tab-title';

@@ -262,6 +262,36 @@ enabled = true
 
 ---
 
+## 11f. F-08 — Redesign visual estilo Edge (paleta Tokyo Night)
+
+Adota as formas do Microsoft Edge mantendo as cores Tokyo Night já existentes.
+
+### Fase A — Restyle horizontal
+| # | Spec | Status |
+|---|------|--------|
+| F-08.1 | Abas com cantos arredondados (8px) estilo "floating" do Edge; ativa elevada | `[x]` |
+| F-08.2 | Abas exibem favicon placeholder (🌐) à esquerda do título | `[x]` |
+| F-08.3 | Botões de navegação (← → ↺ 🏠) circulares, borderless, hover circular | `[x]` |
+| F-08.4 | Botão Home (🏠) navega para `home_url` (Cmd::Home) | `[x]` |
+| F-08.5 | Barra de endereço em pill arredondada (radius 18px) com ícone 🔍 leading | `[x]` |
+| F-08.6 | Botões de ação (reader/bookmark/list/agent) borderless com hover suave | `[x]` |
+| F-08.7 | Foco na barra: borda accent + glow azul | `[x]` |
+
+### Fase B — Abas verticais (toggle) — `[ ]`
+| # | Spec | Status |
+|---|------|--------|
+| F-08.8 | Toggle alterna entre abas horizontais (topo) e verticais (lateral esquerda) | `[ ]` |
+| F-08.9 | Em modo vertical, conteúdo desloca à direita do tab strip | `[ ]` |
+| F-08.10 | Toolbar permanece no topo full width em ambos os modos | `[ ]` |
+
+### Fase C — Sidebar direita (Collections) — `[ ]`
+| # | Spec | Status |
+|---|------|--------|
+| F-08.11 | Rail de ícones na borda direita (favoritos, histórico, agente) | `[ ]` |
+| F-08.12 | Clicar num ícone abre o painel correspondente | `[ ]` |
+
+---
+
 ## 12. Bugs Conhecidos
 
 Todos os bugs da Fase 0 foram corrigidos. ✓
